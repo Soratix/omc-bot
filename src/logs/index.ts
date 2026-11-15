@@ -23,6 +23,11 @@ export interface LogEntry {
   /** Auteur de l'action (si différent de la cible). */
   actor?: User;
   fields?: { name: string; value: string; inline?: boolean }[];
+  /**
+   * Problème qui demande une action de la direction : le log est aussi envoyé
+   * dans le salon staff, précédé de « 🚨 Action de la direction requise ».
+   */
+  alert?: boolean;
 }
 
 export async function sendLog(guild: Guild, entry: LogEntry): Promise<void> {
@@ -31,25 +36,37 @@ export async function sendLog(guild: Guild, entry: LogEntry): Promise<void> {
     .join(', ');
   logger.info(`[log] ${entry.title}${who ? ` — ${who}` : ''}${entry.description ? ` — ${entry.description.replace(/\n/g, ' ')}` : ''}`);
 
-  const id = channelId('logs');
+  const embed = buildEmbed(entry);
+  await postTo(guild, 'logs', { embeds: [embed] });
+  if (entry.alert) {
+    await postTo(guild, 'staff', { content: '🚨 **Action de la direction requise**', embeds: [embed] });
+  }
+}
+
+async function postTo(guild: Guild, key: 'logs' | 'staff', payload: { content?: string; embeds: EmbedBuilder[] }): Promise<void> {
+  const id = channelId(key);
   if (!id) return;
   try {
     const channel = await guild.channels.fetch(id);
     if (!channel?.isSendable()) {
-      logger.warn('Le salon de logs configuré est introuvable ou le bot ne peut pas y écrire.');
+      logger.warn(`Le salon « ${key} » configuré est introuvable ou le bot ne peut pas y écrire.`);
       return;
     }
-    const embed = new EmbedBuilder()
-      .setTitle(entry.title)
-      .setColor(entry.color ?? LogColor.info)
-      .setTimestamp(new Date());
-    if (entry.description) embed.setDescription(entry.description);
-    const fields = [...(entry.fields ?? [])];
-    if (entry.target) fields.unshift({ name: 'Membre', value: `${entry.target} (${entry.target.id})`, inline: true });
-    if (entry.actor) fields.push({ name: 'Par', value: `${entry.actor}`, inline: true });
-    if (fields.length) embed.addFields(fields.slice(0, 25));
-    await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+    await channel.send({ ...payload, allowedMentions: { parse: [] } });
   } catch (err) {
-    logger.error('Échec de l’envoi d’un log dans le salon de logs', err);
+    logger.error(`Échec de l’envoi d’un message dans le salon « ${key} »`, err);
   }
+}
+
+function buildEmbed(entry: LogEntry): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setTitle(entry.title)
+    .setColor(entry.color ?? LogColor.info)
+    .setTimestamp(new Date());
+  if (entry.description) embed.setDescription(entry.description);
+  const fields = [...(entry.fields ?? [])];
+  if (entry.target) fields.unshift({ name: 'Membre', value: `${entry.target} (${entry.target.id})`, inline: true });
+  if (entry.actor) fields.push({ name: 'Par', value: `${entry.actor}`, inline: true });
+  if (fields.length) embed.addFields(fields.slice(0, 25));
+  return embed;
 }

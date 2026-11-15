@@ -173,7 +173,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 - Quand un membre reçoit le rôle **EMS** (à la main, ou automatiquement avec un grade), le bot crée un post
   « Prénom Nom » dans le forum des dossiers, avec une fiche récapitulative (grade, date d’embauche, nombre
   d’absences, d’avertissements et de sanctions) mise à jour automatiquement.
-- Y sont inscrits automatiquement : embauche, changements de grade, absences (déclaration, retour, prolongation,
+- Y sont inscrits automatiquement : embauche (premier grade), promotions et rétrogradations (selon l’ordre des rôles), absences (déclaration, retour, prolongation,
   annulation, retour non confirmé), avertissements, sanctions et notes de la direction.
 - Rôle EMS retiré ou départ du serveur → dossier **archivé et verrouillé** (« 🗄️ Prénom Nom »), jamais supprimé.
   S’il revient dans le personnel, le dossier est rouvert.
@@ -232,6 +232,11 @@ Pour faire de la place après plusieurs mises à jour : `docker image prune -f`.
 ---
 
 ## 8. Logs
+
+- **Alertes** : quand un problème demande une action de la direction (rôle ou pseudo impossible à modifier,
+  forum des dossiers inaccessible, rappel d’absence impossible, erreur inattendue…), le message est aussi envoyé
+  dans le **salon staff**, précédé de « 🚨 Action de la direction requise ». Le cas du propriétaire du serveur,
+  qu’aucun bot ne peut renommer, n’est pas signalé.
 
 - **Console du bot** : `docker compose logs -f bot` (une ligne par événement, heure de Paris).
 - **Salon de logs Discord** : vérifications, changements de pseudo/préfixe, fiches modifiées, absences

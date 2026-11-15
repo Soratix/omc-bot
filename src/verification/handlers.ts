@@ -95,8 +95,11 @@ async function submitForm(interaction: ModalSubmitInteraction) {
     await safeAddRole(member, 'citoyen', reason),
     await safeRemoveRole(member, 'non_verifie', reason),
   ].filter((e): e is string => !!e);
+  // Les rôles en échec demandent toujours une action ; le pseudo aussi, sauf pour le propriétaire (impossible à renommer).
+  const needsAction = errors.length > 0;
   const nick = await syncNickname(member, reason);
   if (nick.changed && nick.error) errors.push(nick.error);
+  const alert = needsAction || (nick.changed && !!nick.error && member.id !== member.guild.ownerId);
   // Si le membre avait déjà un dossier (rôle EMS donné avant la fiche), on le renomme avec le nom RP.
   await refreshDossier(interaction.guild, member.id);
 
@@ -110,6 +113,7 @@ async function submitForm(interaction: ModalSubmitInteraction) {
 
   await sendLog(interaction.guild, {
     title: errors.length ? '⚠️ Vérification incomplète' : '✅ Membre vérifié',
+    alert,
     color: errors.length ? LogColor.warning : LogColor.success,
     target: member.user,
     fields: [

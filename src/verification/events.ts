@@ -20,6 +20,7 @@ export async function onMemberJoin(member: GuildMember): Promise<void> {
     description: error ? `⚠️ Rôle Non vérifié non attribué : ${error}` : 'Rôle **Non vérifié** attribué.',
     color: error ? LogColor.warning : LogColor.info,
     target: member.user,
+    alert: !!error,
   });
 }
 
@@ -48,13 +49,17 @@ export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember
     await sendLog(newMember.guild, { title: titles[dossier], color: LogColor.info, target: newMember.user });
   }
 
-  // Changement de grade inscrit dans le dossier (si le dossier existait déjà).
-  if (!oldMember.partial && dossier !== 'cree') {
-    const before = highestGrade(oldMember)?.label ?? 'aucun';
-    const after = highestGrade(newMember)?.label ?? 'aucun';
-    if (before !== after) {
+  // Changement de grade inscrit dans le dossier : promotion si le nouveau grade est plus haut
+  // dans la hiérarchie des rôles, rétrogradation sinon. Le premier grade (embauche), le retour
+  // (réintégration) et le retrait de tous les grades (départ) sont inscrits par reconcileDossier.
+  if (!oldMember.partial && !dossier) {
+    const before = highestGrade(oldMember);
+    const after = highestGrade(newMember);
+    if (before && after && before.roleId !== after.roleId) {
+      const pos = (id: string) => newMember.guild.roles.cache.get(id)?.position ?? 0;
+      const type = pos(after.roleId) > pos(before.roleId) ? 'promotion' : 'retrogradation';
       const ctx = peekGradeContext(newMember.id);
-      await addDossierEvent(newMember.guild, newMember.id, 'grade', `**${before}** → **${after}**${reasonSuffix(ctx)}`, ctx?.byUserId);
+      await addDossierEvent(newMember.guild, newMember.id, type, `**${before.label}** → **${after.label}**${reasonSuffix(ctx)}`, ctx?.byUserId);
     }
   }
 
@@ -65,6 +70,7 @@ export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember
       title: staffRole.error ? '⚠️ Rôle du personnel non mis à jour' : staffRole.added ? '🩺 Rôle du personnel ajouté' : '🩺 Rôle du personnel retiré',
       description: staffRole.error ?? undefined,
       color: staffRole.error ? LogColor.warning : LogColor.info,
+      alert: !!staffRole.error,
       target: newMember.user,
     });
   }
@@ -75,6 +81,8 @@ export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember
     title: result.error ? '⚠️ Préfixe non mis à jour' : '🏷️ Préfixe de grade mis à jour',
     description: result.error ? `Pseudo attendu : **${result.nick}**\n${result.error}` : `Nouveau pseudo : **${result.nick}**`,
     color: result.error ? LogColor.warning : LogColor.info,
+    // Le propriétaire du serveur ne peut jamais être renommé : inutile d'alerter.
+    alert: !!result.error && newMember.id !== newMember.guild.ownerId,
     target: newMember.user,
   });
 }

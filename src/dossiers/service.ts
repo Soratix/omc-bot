@@ -22,7 +22,8 @@ import { channelId, roleId } from '../config/settings.js';
 import { db } from '../db/index.js';
 import { absences, dossierEvents, dossiers, type Dossier, type DossierEventType } from '../db/schema.js';
 import { formatFr, formatFrDateTime, todayParis } from '../lib/dates.js';
-import { highestGrade } from '../lib/members.js';
+import { describeApiError, highestGrade } from '../lib/members.js';
+import { LogColor, sendLog } from '../logs/index.js';
 import { peekGradeContext, reasonSuffix } from '../grades/context.js';
 import { logger } from '../logger.js';
 import { displayRpName } from '../verification/fiches.js';
@@ -32,6 +33,8 @@ export const EVENT_STYLE: Record<DossierEventType, { emoji: string; label: strin
   reintegration: { emoji: '🔁', label: 'Réintégration', color: 0x22c55e },
   depart: { emoji: '🚪', label: 'Départ', color: 0x6b7280 },
   grade: { emoji: '🎖️', label: 'Changement de grade', color: 0x3b82f6 },
+  promotion: { emoji: '⬆️', label: 'Promotion', color: 0x22c55e },
+  retrogradation: { emoji: '⬇️', label: 'Rétrogradation', color: 0xf97316 },
   absence: { emoji: '📅', label: 'Absence', color: 0xeab308 },
   avertissement: { emoji: '⚠️', label: 'Avertissement', color: 0xf59e0b },
   sanction: { emoji: '⛔', label: 'Sanction', color: 0xef4444 },
@@ -98,7 +101,8 @@ async function buildSummary(guild: Guild, d: Dossier) {
       { name: 'Absences', value: String(await countAbsences(d.userId)), inline: true },
       { name: 'Avertissements', value: String(n('avertissement')), inline: true },
       { name: 'Sanctions', value: String(n('sanction')), inline: true },
-      { name: 'Changements de grade', value: String(n('grade')), inline: true },
+      { name: 'Promotions', value: String(n('promotion')), inline: true },
+      { name: 'Rétrogradations', value: String(n('retrogradation')), inline: true },
       { name: 'Notes', value: String(n('note')), inline: true },
     )
     .setFooter({ text: `Mis à jour le ${formatFrDateTime(new Date())}` });
@@ -157,6 +161,13 @@ async function withThread(guild: Guild, d: Dossier, fn?: (thread: ThreadChannel)
     return thread.url;
   } catch (err) {
     logger.error(`Dossier de ${d.userId} : impossible de mettre à jour le post du forum`, err);
+    await sendLog(guild, {
+      title: '⚠️ Dossier non mis à jour',
+      description: `Impossible d’écrire dans le forum des dossiers (${describeApiError(err, 'modifier le post')}). Vérifie les permissions du bot dans le forum : voir, envoyer des messages, écrire dans les fils, gérer les fils.`,
+      color: LogColor.warning,
+      target: await guild.client.users.fetch(d.userId).catch(() => undefined),
+      alert: true,
+    });
     return null;
   }
 }

@@ -80,7 +80,9 @@ export const dossierEventType = pgEnum('dossier_event_type', [
   'embauche',
   'depart',
   'reintegration',
-  'grade',
+  'grade', // ancien type (avant la distinction promotion / rétrogradation)
+  'promotion',
+  'retrogradation',
   'absence',
   'avertissement',
   'sanction',

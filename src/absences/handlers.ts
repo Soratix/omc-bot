@@ -162,6 +162,7 @@ async function submitDeclare(interaction: ModalSubmitInteraction) {
   );
   await sendLog(interaction.guild, {
     title: '📅 Absence déclarée',
+    alert: !!roleError,
     color: LogColor.info,
     target: member.user,
     fields: [
@@ -191,6 +192,7 @@ async function onReturn(interaction: ButtonInteraction, id: number) {
   await finish(interaction, mode, msg);
   await sendLog(ctx.guild, {
     title: '🟢 Retour d’absence',
+    ...(roleError ? { alert: true, description: `⚠️ Rôle Absent : ${roleError}` } : {}),
     color: LogColor.success,
     target: await interaction.client.users.fetch(absence.userId),
     actor: absence.userId === interaction.user.id ? undefined : interaction.user,
@@ -241,6 +243,7 @@ async function submitExtend(interaction: ModalSubmitInteraction, id: number) {
   await finish(interaction, mode, msg);
   await sendLog(ctx.guild, {
     title: '📅 Absence prolongée',
+    ...(roleError ? { alert: true, description: `⚠️ Rôle Absent : ${roleError}` } : {}),
     color: LogColor.info,
     target: await interaction.client.users.fetch(absence.userId),
     actor: absence.userId === interaction.user.id ? undefined : interaction.user,
@@ -278,6 +281,7 @@ async function onCancel(interaction: ButtonInteraction, id: number) {
   await interaction.editReply({ content: `⚫ Absence annulée.${roleError ? `\n⚠️ ${roleError}` : ''}`, components: [] });
   await sendLog(ctx.guild, {
     title: '⚫ Absence annulée',
+    ...(roleError ? { alert: true, description: `⚠️ Rôle Absent : ${roleError}` } : {}),
     color: LogColor.neutral,
     target: await interaction.client.users.fetch(absence.userId),
     actor: absence.userId === interaction.user.id ? undefined : interaction.user,

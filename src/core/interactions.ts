@@ -11,6 +11,7 @@ import { dossierCommand } from '../dossiers/command.js';
 import { gradeCommand } from '../grades/command.js';
 import { gestionHandler } from '../dossiers/gestion.js';
 import { logger } from '../logger.js';
+import { LogColor, sendLog } from '../logs/index.js';
 import { ficheCommand } from '../verification/command.js';
 import { verificationHandler } from '../verification/handlers.js';
 import type { Command, ComponentHandler } from './types.js';
@@ -39,6 +40,19 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
   } catch (err) {
     const label = interaction.isChatInputCommand() ? `/${interaction.commandName}` : 'customId' in interaction ? interaction.customId : interaction.type;
     logger.error(`Erreur lors du traitement de l’interaction ${label} (${interaction.user.tag})`, err);
+    if (interaction.guild) {
+      await sendLog(interaction.guild, {
+        title: '❌ Erreur inattendue',
+        description: [
+          `Action : \`${String(label)}\``,
+          err instanceof Error ? err.message.slice(0, 500) : 'erreur inconnue',
+          'Détails dans les logs du conteneur (`docker compose logs bot`).',
+        ].join('\n'),
+        color: LogColor.error,
+        actor: interaction.user,
+        alert: true,
+      }).catch(() => {});
+    }
     if (!interaction.isRepliable()) return;
     const content = '❌ Une erreur inattendue est survenue. La direction peut consulter les logs du bot.';
     try {

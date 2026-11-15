@@ -111,6 +111,7 @@ async function sendReminder(guild: Guild, a: Absence): Promise<void> {
   } else {
     await sendLog(guild, {
       title: '⚠️ Rappel de fin d’absence impossible',
+      alert: true,
       description: 'MP fermés et salon staff non configuré.',
       color: LogColor.error,
       target: user,

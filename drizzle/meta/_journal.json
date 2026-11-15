@@ -22,6 +22,13 @@
       "when": 1794772363617,
       "tag": "0002_dossiers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794778756947,
+      "tag": "0003_promotions",
+      "breakpoints": true
     }
   ]
 }
