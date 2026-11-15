@@ -23,6 +23,7 @@ import { db } from '../db/index.js';
 import { absences, dossierEvents, dossiers, type Dossier, type DossierEventType } from '../db/schema.js';
 import { formatFr, formatFrDateTime, todayParis } from '../lib/dates.js';
 import { highestGrade } from '../lib/members.js';
+import { peekGradeContext, reasonSuffix } from '../grades/context.js';
 import { logger } from '../logger.js';
 import { displayRpName } from '../verification/fiches.js';
 
@@ -211,20 +212,23 @@ async function reconcileUnlocked(member: GuildMember): Promise<'cree' | 'rouvert
   const hasRole = member.roles.cache.has(personnel);
   const d = await getDossier(member.id);
   const grade = highestGrade(member)?.label ?? 'aucun';
+  // Changement fait via /grade : on inscrit l'auteur et le motif.
+  const ctx = peekGradeContext(member.id);
+  const by = ctx?.byUserId ?? null;
 
   if (hasRole && !d) {
     await db.insert(dossiers).values({ userId: member.id, hiredOn: todayParis() }).onConflictDoNothing();
-    await addEventUnlocked(member.guild, member.id, 'embauche', `Arrivée dans le personnel — grade : **${grade}**.`);
+    await addEventUnlocked(member.guild, member.id, 'embauche', `Arrivée dans le personnel — grade : **${grade}**.${reasonSuffix(ctx)}`, by);
     return 'cree';
   }
   if (hasRole && d?.archived) {
     await db.update(dossiers).set({ archived: false, archivedAt: null }).where(eq(dossiers.userId, member.id));
-    await addEventUnlocked(member.guild, member.id, 'reintegration', `Retour dans le personnel — grade : **${grade}**.`);
+    await addEventUnlocked(member.guild, member.id, 'reintegration', `Retour dans le personnel — grade : **${grade}**.${reasonSuffix(ctx)}`, by);
     return 'rouvert';
   }
   if (!hasRole && d && !d.archived) {
     await db.update(dossiers).set({ archived: true, archivedAt: new Date() }).where(eq(dossiers.userId, member.id));
-    await addEventUnlocked(member.guild, member.id, 'depart', 'Rôle du personnel retiré : dossier archivé.');
+    await addEventUnlocked(member.guild, member.id, 'depart', `Rôle du personnel retiré : dossier archivé.${reasonSuffix(ctx)}`, by);
     return 'archive';
   }
   return null;

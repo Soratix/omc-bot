@@ -161,8 +161,11 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 - Règles : lettres (accents compris), espaces, tirets et apostrophes ; majuscule automatique en début de mot ;
   « Prénom Nom » ≤ 25 caractères (pour que « [Méd.] Prénom Nom » tienne dans les 32 caractères de Discord).
 - Le bot renomme le membre, retire *Non vérifié*, ajoute *Citoyen*, enregistre la fiche et écrit dans les logs.
-- Quand la direction ajoute ou retire un rôle de grade, le préfixe est mis à jour automatiquement
-  (c’est le grade le plus haut qui compte).
+- **Méthode recommandée pour les grades : `/grade attribuer` / `/grade retirer`.** Le membre doit avoir une fiche ;
+  hors administrateurs, on ne peut attribuer qu’un grade inférieur à son propre rang, ni modifier un membre de rang égal
+  ou supérieur. L’auteur et le motif sont inscrits dans le dossier.
+- Les rôles donnés à la main restent pris en compte : le préfixe est mis à jour automatiquement
+  (c’est le grade le plus haut qui compte), mais le dossier ne saura pas qui a fait le changement.
 - Un membre qui revient sur le serveur retrouve son ancienne fiche pré-remplie.
 
 ### Dossiers du personnel
@@ -204,6 +207,8 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 | `/fiche voir membre:` | Direction | Fiche RP d’un membre |
 | `/fiche modifier membre: prenom: nom:` | Direction | Corrige le nom RP et met à jour le pseudo |
 | `/fiche resynchroniser` | Direction | Réapplique « [Grade] Prénom Nom » (membres avec fiche) et le rôle EMS (tous les membres) |
+| `/grade attribuer membre: grade: motif?` | Direction | Donne un grade (remplace l’ancien). Préfixe, rôle EMS et dossier suivent ; l’auteur et le motif sont inscrits au dossier |
+| `/grade retirer membre: motif?` | Direction | Retire tous les grades (départ) : EMS retiré, dossier archivé |
 | `/dossier voir membre:` | Direction | Résumé du dossier et derniers événements |
 | `/dossier note membre: texte:` | Direction | Ajoute une note au dossier |
 | `/dossier synchroniser` | Direction | Crée / rouvre / archive les dossiers selon le rôle EMS de chaque membre |
@@ -307,5 +312,6 @@ src/
   verification/       fiche RP, pseudo + préfixe de grade, /fiche
   annonces/           /embed (messages embed personnalisés)
   dossiers/           dossiers du personnel (forum), avertissements/sanctions, /dossier
+  grades/             /grade attribuer | retirer
   absences/           déclaration, fiches, tâche quotidienne, /absences
 ```

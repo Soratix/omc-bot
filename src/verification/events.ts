@@ -7,6 +7,7 @@ import { gradeRoleIds } from '../config/grades.js';
 import { env } from '../env.js';
 import { roleId } from '../config/settings.js';
 import { addDossierEvent, archiveOnLeave, reconcileDossier } from '../dossiers/service.js';
+import { peekGradeContext, reasonSuffix } from '../grades/context.js';
 import { highestGrade, isStaff, safeAddRole, safeRemoveRole, type OpError } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { syncNickname } from './fiches.js';
@@ -51,7 +52,10 @@ export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember
   if (!oldMember.partial && dossier !== 'cree') {
     const before = highestGrade(oldMember)?.label ?? 'aucun';
     const after = highestGrade(newMember)?.label ?? 'aucun';
-    if (before !== after) await addDossierEvent(newMember.guild, newMember.id, 'grade', `**${before}** → **${after}**`);
+    if (before !== after) {
+      const ctx = peekGradeContext(newMember.id);
+      await addDossierEvent(newMember.guild, newMember.id, 'grade', `**${before}** → **${after}**${reasonSuffix(ctx)}`, ctx?.byUserId);
+    }
   }
 
   // Rôle commun du personnel (EMS) : présent dès qu'il y a au moins un grade.
