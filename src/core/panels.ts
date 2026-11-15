@@ -5,6 +5,7 @@
 import type { Guild, MessageCreateOptions } from 'discord.js';
 import { panelSettingKey } from '../config/keys.js';
 import { channelId, getSetting, setSetting } from '../config/settings.js';
+import { missingBotPerms } from '../lib/channels.js';
 
 export type PanelResult = { ok: true; url: string; created: boolean } | { ok: false; error: string };
 
@@ -21,6 +22,13 @@ export async function publishPanel(
   const channel = await guild.channels.fetch(targetId).catch(() => null);
   if (!channel?.isTextBased() || !channel.isSendable()) {
     return { ok: false, error: `Le salon configuré pour « ${channelKey} » est introuvable ou le bot ne peut pas y écrire.` };
+  }
+  const missing = missingBotPerms(channel);
+  if (missing.length) {
+    return {
+      ok: false,
+      error: `Il manque au bot ces permissions dans ${channel} : **${missing.join(', ')}**.\nAjoute-les au rôle du bot dans les permissions du salon (ou de sa catégorie).`,
+    };
   }
 
   // Tente de modifier le panneau existant s'il est toujours dans ce salon.

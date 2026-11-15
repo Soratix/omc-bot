@@ -21,6 +21,7 @@ import { absencesPanel } from '../absences/panel.js';
 import { publishPanel } from '../core/panels.js';
 import { gestionPanel } from '../dossiers/gestion.js';
 import type { Command } from '../core/types.js';
+import { missingBotPerms } from '../lib/channels.js';
 import { isDirection } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { verificationPanel } from '../verification/panel.js';
@@ -278,7 +279,15 @@ function diagnose(guild: Guild): string[] {
     else if (role.comparePositionTo(me.roles.highest) >= 0) out.push(`❌ Le rôle ${role} est au-dessus du rôle du bot.`);
   }
   for (const [k, label] of Object.entries(CHANNEL_KEYS)) {
-    if (!channelId(k)) out.push(`⚠️ Salon **${label}** non configuré.`);
+    const id = channelId(k);
+    if (!id) {
+      out.push(`⚠️ Salon **${label}** non configuré.`);
+      continue;
+    }
+    const channel = guild.channels.cache.get(id);
+    if (!channel) continue;
+    const missing = missingBotPerms(channel);
+    if (missing.length) out.push(`❌ ${channel} : il manque au bot ${missing.join(', ')}.`);
   }
   return out;
 }
