@@ -2,22 +2,27 @@
  * Événements membres : arrivée (rôle Non vérifié) et changement de grade
  * (rôle commun du personnel + préfixe du pseudo).
  */
-import type { GuildMember, PartialGuildMember } from 'discord.js';
+import type { Guild, GuildMember, PartialGuildMember } from 'discord.js';
 import { gradeRoleIds, hasDirectionGrade } from '../config/grades.js';
 import { env } from '../env.js';
-import { roleId } from '../config/settings.js';
+import { autoRoleIds, roleId } from '../config/settings.js';
 import { addDossierEvent, archiveOnLeave, reconcileDossier } from '../dossiers/service.js';
 import { peekGradeContext, reasonSuffix } from '../grades/context.js';
-import { highestGrade, isStaff, safeAddRole, safeRemoveRole, type OpError } from '../lib/members.js';
+import { changeRoleById, highestGrade, isStaff, safeAddRole, type OpError } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { syncNickname } from './fiches.js';
 
 export async function onMemberJoin(member: GuildMember): Promise<void> {
   if (member.guild.id !== env.GUILD_ID || member.user.bot) return;
-  const error = await safeAddRole(member, 'non_verifie', 'Arrivée sur le serveur');
+  const errors = [await safeAddRole(member, 'non_verifie', 'Arrivée sur le serveur')];
+  const extra = autoRoleIds('arrivee');
+  for (const id of extra) errors.push(await changeRoleById(member, id, 'add', 'Arrivée sur le serveur'));
+  const error = errors.filter((e): e is string => !!e).join('\n') || null;
   await sendLog(member.guild, {
     title: '👋 Nouveau membre',
-    description: error ? `⚠️ Rôle Non vérifié non attribué : ${error}` : 'Rôle **Non vérifié** attribué.',
+    description: error
+      ? `⚠️ Rôles d’arrivée non attribués :\n${error}`
+      :`Rôles attribués : **Non vérifié**${extra.map((id) => `, <@&${id}>`).join('')}.`,
     color: error ? LogColor.warning : LogColor.info,
     target: member.user,
     alert: !!error,
@@ -96,6 +101,19 @@ const LINKED_ROLES = [
   { key: 'direction', label: 'Rôle Direction', emoji: '👑', shouldHave: (m: GuildMember) => hasDirectionGrade(m) },
 ] as const;
 
+/** Liste des rôles liés : rôles principaux (EMS, Direction) + rôles automatiques du même déclencheur (/config auto). */
+function linkedRoleTargets(guild: Guild): { roleId: string; label: string; emoji: string; shouldHave: (m: GuildMember) => boolean }[] {
+  const out = [];
+  for (const linked of LINKED_ROLES) {
+    const main = roleId(linked.key);
+    if (main) out.push({ roleId: main, label: linked.label, emoji: linked.emoji, shouldHave: linked.shouldHave });
+    for (const extra of autoRoleIds(linked.key)) {
+      out.push({ roleId: extra, label: `Rôle ${guild.roles.cache.get(extra)?.name ?? extra}`, emoji: linked.emoji, shouldHave: linked.shouldHave });
+    }
+  }
+  return out;
+}
+
 export interface LinkedRoleChange {
   label: string;
   emoji: string;
@@ -106,13 +124,11 @@ export interface LinkedRoleChange {
 /** Ajoute / retire les rôles liés aux grades. Retourne uniquement les rôles modifiés (ou en échec). */
 export async function syncLinkedRoles(member: GuildMember, reason: string): Promise<LinkedRoleChange[]> {
   const changes: LinkedRoleChange[] = [];
-  for (const linked of LINKED_ROLES) {
-    const id = roleId(linked.key);
-    if (!id) continue;
-    const shouldHave = linked.shouldHave(member);
-    if (shouldHave === member.roles.cache.has(id)) continue;
-    const error = shouldHave ? await safeAddRole(member, linked.key, reason) : await safeRemoveRole(member, linked.key, reason);
-    changes.push({ label: linked.label, emoji: linked.emoji, added: shouldHave, error });
+  for (const target of linkedRoleTargets(member.guild)) {
+    const shouldHave = target.shouldHave(member);
+    if (shouldHave === member.roles.cache.has(target.roleId)) continue;
+    const error = await changeRoleById(member, target.roleId, shouldHave ? 'add' : 'remove', reason);
+    changes.push({ label: target.label, emoji: target.emoji, added: shouldHave, error });
   }
   return changes;
 }

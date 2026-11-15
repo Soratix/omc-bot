@@ -25,6 +25,20 @@ export const CHANNEL_KEYS: Record<string, string> = {
 /** Salons qui doivent être des forums (les autres sont des salons textuels). */
 export const FORUM_CHANNEL_KEYS = new Set(['dossiers']);
 
+/**
+ * Rôles automatiques supplémentaires (/config auto), par déclencheur :
+ *  - arrivee   : donnés à l'arrivée sur le serveur ;
+ *  - personnel : donnés avec le rôle EMS (au moins un grade), retirés sinon ;
+ *  - direction : donnés avec un grade « direction », retirés sinon.
+ */
+export const AUTO_TRIGGERS: Record<string, string> = {
+  arrivee: 'Arrivée sur le serveur',
+  personnel: 'Personnel (EMS)',
+  direction: 'Direction',
+};
+export type AutoTrigger = 'arrivee' | 'personnel' | 'direction';
+export const autoRoleSettingKey = (trigger: string, roleId: string) => `auto_${trigger}_${roleId}`;
+
 export const roleSettingKey = (key: string) => `role_${key}`;
 export const channelSettingKey = (key: string) => `channel_${key}`;
 export const panelSettingKey = (panel: string) => `panel_${panel}`;

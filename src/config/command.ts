@@ -26,8 +26,8 @@ import { isDirection } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { verificationPanel } from '../verification/panel.js';
 import { MAX_PREFIX_LENGTH, allGrades, gradeRoleIds, removeGrade, upsertGrade } from './grades.js';
-import { CHANNEL_KEYS, FORUM_CHANNEL_KEYS, ROLE_KEYS, channelSettingKey, roleSettingKey } from './keys.js';
-import { channelId, roleId, setSetting } from './settings.js';
+import { AUTO_TRIGGERS, CHANNEL_KEYS, FORUM_CHANNEL_KEYS, ROLE_KEYS, autoRoleSettingKey, channelSettingKey, roleSettingKey } from './keys.js';
+import { autoRoleIds, channelId, deleteSetting, roleId, setSetting } from './settings.js';
 
 type PanelPayload = ReturnType<typeof verificationPanel>;
 const PANELS: Record<string, { label: string; channelKey: string; build: (guild: Guild) => PanelPayload | Promise<PanelPayload> }> = {
@@ -68,6 +68,30 @@ export const configCommand: Command = {
             .setName('retirer')
             .setDescription('Ne plus traiter ce rôle comme un grade')
             .addRoleOption((o) => o.setName('role').setDescription('Rôle du grade').setRequired(true)),
+        ),
+    )
+    .addSubcommandGroup((g) =>
+      g
+        .setName('auto')
+        .setDescription('Rôles supplémentaires donnés automatiquement')
+        .addSubcommand((s) =>
+          s
+            .setName('ajouter')
+            .setDescription('Donner automatiquement un rôle (arrivée, EMS ou Direction)')
+            .addStringOption((o) =>
+              o
+                .setName('declencheur')
+                .setDescription('Quand donner ce rôle')
+                .setRequired(true)
+                .addChoices(...choices(AUTO_TRIGGERS)),
+            )
+            .addRoleOption((o) => o.setName('role').setDescription('Rôle à donner').setRequired(true)),
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('retirer')
+            .setDescription('Ne plus donner ce rôle automatiquement')
+            .addRoleOption((o) => o.setName('role').setDescription('Rôle').setRequired(true)),
         ),
     )
     .addSubcommand((s) =>
@@ -113,6 +137,7 @@ export const configCommand: Command = {
     const group = interaction.options.getSubcommandGroup();
     const sub = interaction.options.getSubcommand();
     if (group === 'grade') return sub === 'ajouter' ? addGrade(interaction) : delGrade(interaction);
+    if (group === 'auto') return sub === 'ajouter' ? addAutoRole(interaction) : delAutoRole(interaction);
     if (sub === 'role') return setRole(interaction);
     if (sub === 'salon') return setChannel(interaction);
     if (sub === 'voir') return show(interaction);
@@ -168,6 +193,42 @@ async function delGrade(interaction: ChatInputCommandInteraction<'cached'>) {
   if (removed) {
     await sendLog(interaction.guild, { title: '⚙️ Grade retiré', description: `${role}`, color: LogColor.neutral, actor: interaction.user });
   }
+}
+
+async function addAutoRole(interaction: ChatInputCommandInteraction<'cached'>) {
+  const trigger = interaction.options.getString('declencheur', true);
+  const role = interaction.options.getRole('role', true);
+  if (role.managed || role.id === interaction.guild.id || gradeRoleIds().includes(role.id)) {
+    await interaction.reply({ content: '❌ Ce rôle ne peut pas être automatique (rôle d’intégration, @everyone ou grade).', flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await setSetting(autoRoleSettingKey(trigger, role.id), '1', interaction.user.id);
+  await interaction.reply({
+    content:
+      `✅ ${role} sera donné automatiquement : **${AUTO_TRIGGERS[trigger]}**.` +
+      roleAboveBotWarning(interaction.guild, role.id, 'attribuer ce rôle') +
+      (trigger === 'arrivee' ? '' : '\nPour l’appliquer aux membres actuels : `/fiche resynchroniser`.'),
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+  await sendLog(interaction.guild, { title: '⚙️ Rôle automatique ajouté', description: `${role} → ${AUTO_TRIGGERS[trigger]}`, color: LogColor.neutral, actor: interaction.user });
+}
+
+async function delAutoRole(interaction: ChatInputCommandInteraction<'cached'>) {
+  const role = interaction.options.getRole('role', true);
+  let removed = 0;
+  for (const t of Object.keys(AUTO_TRIGGERS)) {
+    if (autoRoleIds(t).includes(role.id)) {
+      await deleteSetting(autoRoleSettingKey(t, role.id));
+      removed++;
+    }
+  }
+  await interaction.reply({
+    content: removed ? `✅ ${role} n’est plus donné automatiquement (les membres qui l’ont le gardent).` : `ℹ️ ${role} n’était pas un rôle automatique.`,
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+  if (removed) await sendLog(interaction.guild, { title: '⚙️ Rôle automatique retiré', description: `${role}`, color: LogColor.neutral, actor: interaction.user });
 }
 
 async function setRole(interaction: ChatInputCommandInteraction<'cached'>) {
@@ -253,6 +314,13 @@ async function show(interaction: ChatInputCommandInteraction<'cached'>) {
     .addFields(
       { name: 'Grades (du plus haut au plus bas)', value: (gradeLines.join('\n') || '— aucun grade (`/config grade ajouter`)').slice(0, 1024) },
       { name: 'Rôles', value: roles },
+      {
+        name: 'Rôles automatiques',
+        value:
+          Object.entries(AUTO_TRIGGERS)
+            .map(([t, label]) => `**${label}** : ${autoRoleIds(t).map((id) => (guild.roles.cache.has(id) ? `<@&${id}>` : `⚠️ ${id} (supprimé)`)).join(', ') || '—'}`)
+            .join('\n'),
+      },
       { name: 'Salons', value: channels },
       { name: problems.length ? 'Problèmes détectés' : 'Vérifications', value: problems.length ? problems.join('\n').slice(0, 1024) : '✅ Aucun problème détecté.' },
     );
@@ -278,6 +346,13 @@ function diagnose(guild: Guild): string[] {
     if (!id) out.push(`⚠️ Rôle **${label}** non configuré.`);
     else if (!role) out.push(`❌ Le rôle configuré pour **${label}** n’existe plus.`);
     else if (role.comparePositionTo(me.roles.highest) >= 0) out.push(`❌ Le rôle ${role} est au-dessus du rôle du bot.`);
+  }
+  for (const t of Object.keys(AUTO_TRIGGERS)) {
+    for (const id of autoRoleIds(t)) {
+      const role = guild.roles.cache.get(id);
+      if (!role) out.push(`❌ Rôle automatique ${id} supprimé : \`/config auto retirer\`.`);
+      else if (role.comparePositionTo(me.roles.highest) >= 0) out.push(`❌ Le rôle automatique ${role} est au-dessus du rôle du bot.`);
+    }
   }
   for (const [k, label] of Object.entries(CHANNEL_KEYS)) {
     const id = channelId(k);

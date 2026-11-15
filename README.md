@@ -74,6 +74,8 @@ dans *Paramètres du serveur → Rôles*, sinon il ne pourra ni les attribuer, n
   des rôles du serveur** qui donne le préfixe : il suffit de ranger les rôles dans Discord.
 - **Rôles techniques** : *Citoyen*, *Non vérifié*, *Absent*, et *Personnel* (`/config role`).
   Le rôle *Personnel* (EMS) est ajouté automatiquement à tout membre qui a au moins un grade, et retiré quand il n’en a plus.
+  **Rôles automatiques supplémentaires** (`/config auto ajouter declencheur: role:`) : donnés à l’arrivée sur le
+  serveur, avec le rôle EMS, ou avec un grade direction (et retirés en même temps qu’EMS / Direction).
   Le rôle *Direction* est ajouté automatiquement à tout membre qui a un grade marqué « direction », et retiré sinon.
 
 > Le bot ne peut **jamais** renommer le propriétaire du serveur (limite Discord) ni un membre dont le rôle
@@ -205,7 +207,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 
 | Commande | Qui | Effet |
 |---|---|---|
-| `/config grade ajouter` · `grade retirer` · `role` · `salon` · `voir` · `publier` | Direction | Configuration (voir §4) |
+| `/config grade ajouter` · `grade retirer` · `auto ajouter` · `auto retirer` · `role` · `salon` · `voir` · `publier` | Direction | Configuration (voir §4) |
 | `/embed envoyer salon? couleur? image? mention?` | Direction | Publie un embed ; titre, contenu (Markdown, retours à la ligne) et pied de page se saisissent dans un formulaire |
 | `/embed modifier lien: couleur? image?` | Direction | Modifie un embed publié par le bot (formulaire pré-rempli ; `image:aucune` retire l’image) |
 | `/fiche voir membre:` | Direction | Fiche RP d’un membre |

@@ -60,11 +60,16 @@ export async function safeRemoveRole(member: GuildMember, key: string, reason: s
 async function changeRole(member: GuildMember, key: string, op: 'add' | 'remove', reason: string): Promise<OpError> {
   const id = roleId(key);
   if (!id) return `Le rôle « ${key} » n’est pas configuré (/config role).`;
+  return changeRoleById(member, id, op, reason);
+}
+
+/** Ajoute ou retire un rôle par son ID, avec les mêmes contrôles (hiérarchie, permissions). */
+export async function changeRoleById(member: GuildMember, id: string, op: 'add' | 'remove', reason: string): Promise<OpError> {
   const has = member.roles.cache.has(id);
   if ((op === 'add' && has) || (op === 'remove' && !has)) return null;
 
   const role = member.guild.roles.cache.get(id);
-  if (!role) return `Le rôle configuré pour « ${key} » n’existe plus sur le serveur.`;
+  if (!role) return `Le rôle ${id} n’existe plus sur le serveur.`;
   const me = member.guild.members.me;
   if (!me?.permissions.has(PermissionFlagsBits.ManageRoles)) return 'Il manque au bot la permission « Gérer les rôles ».';
   if (role.comparePositionTo(me.roles.highest) >= 0) {

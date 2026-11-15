@@ -35,6 +35,12 @@ export function allSettings(): ReadonlyMap<string, string> {
   return cache;
 }
 
+/** IDs des rôles automatiques pour un déclencheur (/config auto). */
+export function autoRoleIds(trigger: string): string[] {
+  const prefix = `auto_${trigger}_`;
+  return [...cache.keys()].filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length));
+}
+
 /** ID du rôle configuré pour cette clé (ex. 'citoyen'), ou undefined. */
 export const roleId = (key: string) => getSetting(roleSettingKey(key));
 /** ID du salon configuré pour cette clé (ex. 'logs'), ou undefined. */
