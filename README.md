@@ -194,7 +194,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 - Choix d’un type → formulaire propre au type → salon privé `type-numéro-nom` dans la catégorie des tickets,
   visible par l’auteur et par les rôles d’accès du type (la direction est toujours autorisée à traiter).
 - Boutons **Prendre en charge** et **Fermer** (le formulaire de motif sert de confirmation). L’auteur peut aussi fermer.
-- À la fermeture : transcript **HTML** dans `#logs-tickets`, message privé à l’auteur, suppression du salon.
+- À la fermeture : transcript **HTML** dans `#logs-tickets`, message privé à l’auteur avec une copie du transcript, suppression du salon.
   Si le transcript ne peut pas être archivé, le salon est conservé et la direction est alertée.
 - Un seul ticket ouvert par membre et par type. Un salon de ticket supprimé à la main ferme le ticket en base.
 - **Types gérés depuis Discord** : `/tickets type-creer`, `type-modifier`, `type-acces`, `type-retirer`, `type-reactiver`.

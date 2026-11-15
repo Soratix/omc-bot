@@ -39,7 +39,7 @@ function renderMessage(m: Message): string {
   return `<div class="msg"><img src="${esc(m.author.displayAvatarURL({ size: 64 }))}" alt=""><div><div class="h"><b>${esc(name)}</b>${m.author.bot ? ' <span class="bot">BOT</span>' : ''} <span class="d">${formatFrDateTime(m.createdAt)}</span></div>${parts.join('')}</div></div>`;
 }
 
-export async function buildTranscript(channel: TextChannel, ticket: Ticket, type: TicketType): Promise<{ file: AttachmentBuilder; count: number }> {
+export async function buildTranscript(channel: TextChannel, ticket: Ticket, type: TicketType): Promise<{ file: AttachmentBuilder; html: Buffer; count: number }> {
   const messages = await fetchAll(channel);
   const html = `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -57,5 +57,6 @@ h1{font-size:20px;margin:0 0 4px}.meta{color:#949ba4;font-size:14px}
 <div class="meta">Salon #${esc(channel.name)} · ouvert le ${formatFrDateTime(ticket.openedAt)} · ${messages.length} message(s) · transcript généré le ${formatFrDateTime(new Date())}</div></header>
 ${messages.map(renderMessage).join('\n')}
 </body></html>`;
-  return { file: new AttachmentBuilder(Buffer.from(html, 'utf8'), { name: `ticket-${ticket.id}.html` }), count: messages.length };
+  const buffer = Buffer.from(html, 'utf8');
+  return { file: new AttachmentBuilder(buffer, { name: `ticket-${ticket.id}.html` }), html: buffer, count: messages.length };
 }

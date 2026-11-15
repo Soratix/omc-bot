@@ -6,6 +6,7 @@
  */
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ChannelType,
   EmbedBuilder,
   MessageFlags,
@@ -255,11 +256,13 @@ export async function finalizeClose(guild: Guild, ticket: Ticket, type: TicketTy
 
   let files: Awaited<ReturnType<typeof buildTranscript>>['file'][] = [];
   let count = 0;
+  let html: Buffer | null = null;
   if (channel?.type === ChannelType.GuildText) {
     try {
       const t = await buildTranscript(channel, closed, type);
       files = [t.file];
       count = t.count;
+      html = t.html;
     } catch (err) {
       logger.error(`Ticket n°${ticket.id} : transcript impossible`, err);
     }
@@ -279,11 +282,18 @@ export async function finalizeClose(guild: Guild, ticket: Ticket, type: TicketTy
     );
   const logged = await sendTicketLog(guild, embed, files);
 
-  // Prévient l'auteur (silencieux si ses MP sont fermés).
+  // Prévient l'auteur avec une copie du transcript (silencieux si ses MP sont fermés).
   const user = await guild.client.users.fetch(ticket.userId).catch(() => null);
-  await user
-    ?.send(`🔒 Ton ticket **${type.name}** (n°${ticket.id}) à l’Ocean Medical Center a été fermé.\nMotif : ${reason}`)
-    .catch(() => {});
+  const dmSent = await user
+    ?.send({
+      content:
+        `🔒 Ton ticket **${type.name}** (n°${ticket.id}) à l’Ocean Medical Center a été fermé.\nMotif : ${reason}` +
+        (html ? '\nCi-joint la copie de la conversation (fichier à ouvrir dans un navigateur).' : ''),
+      files: html ? [new AttachmentBuilder(html, { name: `ticket-${ticket.id}.html` })] : [],
+    })
+    .then(() => true)
+    .catch(() => false);
+  if (!dmSent) logger.info(`Ticket n°${ticket.id} : message privé à l’auteur impossible (MP fermés).`);
 
   if (deleteChannel && channel) {
     // Si le transcript n'a pas pu être archivé, on garde le salon pour ne rien perdre.
