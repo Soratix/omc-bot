@@ -5,6 +5,7 @@ import type { Guild, GuildMember, User } from 'discord.js';
 import type { Absence } from '../db/schema.js';
 import { todayParis } from '../lib/dates.js';
 import { safeAddRole, safeRemoveRole, type OpError } from '../lib/members.js';
+import { refreshAbsencesPanel } from './panel.js';
 import { refreshAbsenceMessage } from './render.js';
 import { startedActiveFor, updateAbsence } from './repo.js';
 
@@ -21,6 +22,7 @@ async function afterChange(guild: Guild, a: Absence, reason: string): Promise<{ 
   const member = await guild.members.fetch(a.userId).catch(() => null);
   const roleError = member ? await syncAbsentRole(member, reason) : null;
   const absence = await refreshAbsenceMessage(guild, a);
+  await refreshAbsencesPanel(guild);
   return { absence, roleError };
 }
 

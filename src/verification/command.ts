@@ -14,7 +14,7 @@ import { highestGrade, isDirection } from '../lib/members.js';
 import { validateRpName } from '../lib/names.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { refreshDossier } from '../dossiers/service.js';
-import { syncStaffRole } from './events.js';
+import { syncLinkedRoles } from './events.js';
 import { expectedNickname, getFiche, saveFiche, syncNickname } from './fiches.js';
 
 export const ficheCommand: Command = {
@@ -37,7 +37,7 @@ export const ficheCommand: Command = {
         .addStringOption((o) => o.setName('nom').setDescription('Nom RP').setRequired(true).setMaxLength(22)),
     )
     .addSubcommand((s) =>
-      s.setName('resynchroniser').setDescription('Réappliquer les pseudos « [Grade] Prénom Nom » et le rôle du personnel (EMS)'),
+      s.setName('resynchroniser').setDescription('Réappliquer les pseudos « [Grade] Prénom Nom » et les rôles EMS / Direction'),
     ),
 
   async execute(interaction) {
@@ -121,17 +121,17 @@ async function resync(interaction: ChatInputCommandInteraction<'cached'>) {
     if (r.error) errors.push(`${member.user.tag} : ${r.error}`);
     else updated++;
   }
-  // Rôle commun du personnel (EMS) pour tous les membres du serveur.
+  // Rôles liés aux grades (EMS, Direction) pour tous les membres du serveur.
   let staffChanged = 0;
   const members = await interaction.guild.members.fetch();
   for (const member of members.values()) {
     if (member.user.bot) continue;
-    const r = await syncStaffRole(member, `Resynchronisation par ${interaction.user.tag}`);
-    if (!r.changed) continue;
-    if (r.error) errors.push(`${member.user.tag} : ${r.error}`);
-    else staffChanged++;
+    for (const r of await syncLinkedRoles(member, `Resynchronisation par ${interaction.user.tag}`)) {
+      if (r.error) errors.push(`${member.user.tag} : ${r.error}`);
+      else staffChanged++;
+    }
   }
-  const summary = `✅ ${updated} pseudo(s) mis à jour sur ${rows.length} fiche(s), rôle du personnel corrigé pour ${staffChanged} membre(s).${errors.length ?`\n⚠️ ${errors.length} échec(s) :\n• ${errors.slice(0, 10).join('\n• ')}` : ''}`;
+  const summary = `✅ ${updated} pseudo(s) mis à jour sur ${rows.length} fiche(s), ${staffChanged} rôle(s) EMS / Direction corrigé(s).${errors.length ?`\n⚠️ ${errors.length} échec(s) :\n• ${errors.slice(0, 10).join('\n• ')}` : ''}`;
   await interaction.editReply(summary.slice(0, 2000));
   await sendLog(interaction.guild, { title: '🔄 Pseudos resynchronisés', description: summary.slice(0, 4000), color: LogColor.info, actor: interaction.user });
 }

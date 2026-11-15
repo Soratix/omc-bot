@@ -3,7 +3,7 @@
  * (rôle commun du personnel + préfixe du pseudo).
  */
 import type { GuildMember, PartialGuildMember } from 'discord.js';
-import { gradeRoleIds } from '../config/grades.js';
+import { gradeRoleIds, hasDirectionGrade } from '../config/grades.js';
 import { env } from '../env.js';
 import { roleId } from '../config/settings.js';
 import { addDossierEvent, archiveOnLeave, reconcileDossier } from '../dossiers/service.js';
@@ -63,14 +63,13 @@ export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember
     }
   }
 
-  // Rôle commun du personnel (EMS) : présent dès qu'il y a au moins un grade.
-  const staffRole = await syncStaffRole(newMember, 'Changement de grade');
-  if (staffRole.changed) {
+  // Rôles liés aux grades : EMS (tout grade) et Direction (grades « direction »).
+  for (const change of await syncLinkedRoles(newMember, 'Changement de grade')) {
     await sendLog(newMember.guild, {
-      title: staffRole.error ? '⚠️ Rôle du personnel non mis à jour' : staffRole.added ? '🩺 Rôle du personnel ajouté' : '🩺 Rôle du personnel retiré',
-      description: staffRole.error ?? undefined,
-      color: staffRole.error ? LogColor.warning : LogColor.info,
-      alert: !!staffRole.error,
+      title: change.error ? `⚠️ ${change.label} non mis à jour` : `${change.emoji} ${change.label} ${change.added ? 'ajouté' : 'retiré'}`,
+      description: change.error ?? undefined,
+      color: change.error ? LogColor.warning : LogColor.info,
+      alert: !!change.error,
       target: newMember.user,
     });
   }
@@ -88,17 +87,32 @@ export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember
 }
 
 /**
- * Ajoute le rôle « personnel » configuré (EMS) aux membres qui ont au moins un grade,
- * et le retire à ceux qui n'en ont plus aucun.
+ * Rôles liés aux grades, gérés automatiquement :
+ *  - « personnel » (EMS) : présent dès que le membre a au moins un grade ;
+ *  - « direction »       : présent dès que le membre a au moins un grade marqué « direction ».
  */
-export async function syncStaffRole(
-  member: GuildMember,
-  reason: string,
-): Promise<{ changed: false } | { changed: true; added: boolean; error: OpError }> {
-  const id = roleId('personnel');
-  if (!id) return { changed: false };
-  const shouldHave = isStaff(member);
-  if (shouldHave === member.roles.cache.has(id)) return { changed: false };
-  const error = shouldHave ? await safeAddRole(member, 'personnel', reason) : await safeRemoveRole(member, 'personnel', reason);
-  return { changed: true, added: shouldHave, error };
+const LINKED_ROLES = [
+  { key: 'personnel', label: 'Rôle du personnel (EMS)', emoji: '🩺', shouldHave: (m: GuildMember) => isStaff(m) },
+  { key: 'direction', label: 'Rôle Direction', emoji: '👑', shouldHave: (m: GuildMember) => hasDirectionGrade(m) },
+] as const;
+
+export interface LinkedRoleChange {
+  label: string;
+  emoji: string;
+  added: boolean;
+  error: OpError;
+}
+
+/** Ajoute / retire les rôles liés aux grades. Retourne uniquement les rôles modifiés (ou en échec). */
+export async function syncLinkedRoles(member: GuildMember, reason: string): Promise<LinkedRoleChange[]> {
+  const changes: LinkedRoleChange[] = [];
+  for (const linked of LINKED_ROLES) {
+    const id = roleId(linked.key);
+    if (!id) continue;
+    const shouldHave = linked.shouldHave(member);
+    if (shouldHave === member.roles.cache.has(id)) continue;
+    const error = shouldHave ? await safeAddRole(member, linked.key, reason) : await safeRemoveRole(member, linked.key, reason);
+    changes.push({ label: linked.label, emoji: linked.emoji, added: shouldHave, error });
+  }
+  return changes;
 }

@@ -21,6 +21,7 @@ import { logger } from '../logger.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { addDossierEvent } from '../dossiers/service.js';
 import { displayRpName } from '../verification/fiches.js';
+import { refreshAbsencesPanel } from './panel.js';
 import { absenceButtons, refreshAbsenceMessage } from './render.js';
 import { listActive, updateAbsence } from './repo.js';
 import { syncAbsentRole } from './service.js';
@@ -72,6 +73,7 @@ export async function runDailyCheck(client: Client<true>, withReminders: boolean
         logger.error(`Tâche des absences : erreur sur l’absence n°${absence.id}`, err);
       }
     }
+    await refreshAbsencesPanel(guild);
     logger.info(`Tâche des absences terminée (${active.length} absence(s) active(s), rappels : ${withReminders ? 'oui' : 'non'}).`);
   } catch (err) {
     logger.error('Tâche des absences : échec', err);

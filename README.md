@@ -74,6 +74,7 @@ dans *Paramètres du serveur → Rôles*, sinon il ne pourra ni les attribuer, n
   des rôles du serveur** qui donne le préfixe : il suffit de ranger les rôles dans Discord.
 - **Rôles techniques** : *Citoyen*, *Non vérifié*, *Absent*, et *Personnel* (`/config role`).
   Le rôle *Personnel* (EMS) est ajouté automatiquement à tout membre qui a au moins un grade, et retiré quand il n’en a plus.
+  Le rôle *Direction* est ajouté automatiquement à tout membre qui a un grade marqué « direction », et retiré sinon.
 
 > Le bot ne peut **jamais** renommer le propriétaire du serveur (limite Discord) ni un membre dont le rôle
 > le plus haut est au-dessus du sien. Dans ces cas, il affiche un message clair et l’écrit dans les logs.
@@ -139,7 +140,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 
 1. Déclarer les grades : `/config grade ajouter role:@Directeur prefixe:[Dir.] direction:True`, etc.
    (`/config grade retirer` pour en enlever un).
-2. Associer les rôles techniques : `/config role cle:Citoyen role:@Citoyen`, puis Non vérifié, Absent et Personnel (→ @EMS).
+2. Associer les rôles techniques : `/config role cle:Citoyen role:@Citoyen`, puis Non vérifié, Absent, Personnel (→ @EMS) et Direction (→ @Direction).
 3. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff, dossiers (forum) et gestion.
 4. Vérifier : `/config voir` affiche la configuration et **les problèmes détectés** (rôle du bot trop bas, permission manquante…).
 5. Publier les messages fixes :
@@ -184,8 +185,11 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 ### Absences
 
 - Bouton **Déclarer une absence** (personnel uniquement : membres ayant au moins un grade) → début, fin (JJ/MM/AAAA), motif facultatif.
+- Le message fixe de `#absences` affiche en permanence **qui est actuellement absent** (et jusqu’à quand) et les
+  absences à venir ; il se met à jour à chaque changement et chaque jour.
 - Une fiche (embed) est publiée dans `#absences` avec les boutons **Je suis revenu**, **Prolonger**, **Annuler**
-  (auteur ou direction). La fiche est modifiée à chaque changement, jamais dupliquée.
+  (auteur ou direction). La fiche est modifiée à chaque changement, jamais dupliquée,
+  et **supprimée du salon** dès que l’absence est terminée ou annulée (l’historique reste en base et dans le dossier).
 - Statuts : 🔵 À venir · 🟡 En cours · 🔴 Retour non confirmé · 🟢 Terminée · ⚫ Annulée.
 - Rôle **Absent** pendant l’absence (attribué le jour du début, retiré au retour ou à l’annulation).
 - Tâche quotidienne à 9 h (heure de Paris) :

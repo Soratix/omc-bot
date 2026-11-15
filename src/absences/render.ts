@@ -66,8 +66,17 @@ export async function buildAbsenceMessage(guild: Guild, a: Absence) {
 /**
  * Met à jour le message de la fiche dans #absences.
  * S'il a été supprimé et que l'absence est encore active, il est republié.
+ * Une absence terminée ou annulée est retirée du salon (elle reste en base et dans le dossier).
  */
 export async function refreshAbsenceMessage(guild: Guild, a: Absence): Promise<Absence> {
+  if (!isActive(a)) {
+    if (a.channelId && a.messageId) {
+      const channel = await guild.channels.fetch(a.channelId).catch(() => null);
+      if (channel?.isTextBased()) await channel.messages.delete(a.messageId).catch(() => {});
+      return updateAbsence(a.id, { messageId: null });
+    }
+    return a;
+  }
   const payload = await buildAbsenceMessage(guild, a);
   try {
     if (a.channelId && a.messageId) {

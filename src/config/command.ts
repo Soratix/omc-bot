@@ -29,7 +29,8 @@ import { MAX_PREFIX_LENGTH, allGrades, gradeRoleIds, removeGrade, upsertGrade } 
 import { CHANNEL_KEYS, FORUM_CHANNEL_KEYS, ROLE_KEYS, channelSettingKey, roleSettingKey } from './keys.js';
 import { channelId, roleId, setSetting } from './settings.js';
 
-const PANELS: Record<string, { label: string; channelKey: string; build: () => ReturnType<typeof verificationPanel> }> = {
+type PanelPayload = ReturnType<typeof verificationPanel>;
+const PANELS: Record<string, { label: string; channelKey: string; build: (guild: Guild) => PanelPayload | Promise<PanelPayload> }> = {
   verification: { label: 'Vérification (Créer ma fiche)', channelKey: 'verification', build: verificationPanel },
   absences: { label: 'Absences (Déclarer une absence)', channelKey: 'absences', build: absencesPanel },
   gestion: { label: 'Gestion (Avertissement / Sanction)', channelKey: 'gestion', build: gestionPanel },
@@ -144,7 +145,7 @@ async function addGrade(interaction: ChatInputCommandInteraction<'cached'>) {
     content:
       `✅ Grade ${role} → préfixe **${prefix}**${direction ? ' · accès direction' : ''}` +
       roleAboveBotWarning(interaction.guild, role.id, 'renommer les membres qui ont ce grade') +
-      '\nPour appliquer le préfixe aux membres qui ont déjà ce rôle : `/fiche resynchroniser`.',
+      '\nPour appliquer le préfixe (et les rôles EMS / Direction) aux membres qui ont déjà ce rôle : `/fiche resynchroniser`.',
     flags: MessageFlags.Ephemeral,
     allowedMentions: { parse: [] },
   });
@@ -176,7 +177,7 @@ async function setRole(interaction: ChatInputCommandInteraction<'cached'>) {
     await interaction.reply({ content: '❌ Ce rôle ne peut pas être utilisé (rôle géré par une intégration ou @everyone).', flags: MessageFlags.Ephemeral });
     return;
   }
-  if (key === 'personnel' && gradeRoleIds().includes(role.id)) {
+  if ((key === 'personnel' || key === 'direction') && gradeRoleIds().includes(role.id)) {
     await interaction.reply({
       content: `❌ ${role} est déclaré comme grade : retire-le d’abord avec \`/config grade retirer\`.`,
       flags: MessageFlags.Ephemeral,
@@ -297,7 +298,7 @@ async function publish(interaction: ChatInputCommandInteraction<'cached'>) {
   const panel = PANELS[key];
   if (!panel) return;
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const result = await publishPanel(interaction.guild, key, panel.channelKey, panel.build(), interaction.user.id);
+  const result = await publishPanel(interaction.guild, key, panel.channelKey, await panel.build(interaction.guild), interaction.user.id);
   if (!result.ok) {
     await interaction.editReply(`❌ ${result.error}`);
     return;

@@ -9,6 +9,7 @@ export const ROLE_KEYS: Record<string, string> = {
   non_verifie: 'Non vérifié',
   absent: 'Absent',
   personnel: 'Personnel (ex. EMS, donné avec tout grade)',
+  direction: 'Direction (donné avec les grades « direction »)',
 };
 
 /** Salons configurables. */
