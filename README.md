@@ -70,7 +70,8 @@ dans *Paramètres du serveur → Rôles*, sinon il ne pourra ni les attribuer, n
 - **Grades** : n’importe quel rôle peut devenir un grade avec `/config grade ajouter` (rôle, préfixe de 6 caractères
   maximum, accès direction oui/non). Quand un membre a plusieurs grades, c’est **le rôle le plus haut dans la liste
   des rôles du serveur** qui donne le préfixe : il suffit de ranger les rôles dans Discord.
-- **Rôles techniques** : *Citoyen*, *Non vérifié*, *Absent* (`/config role`).
+- **Rôles techniques** : *Citoyen*, *Non vérifié*, *Absent*, et *Personnel* (`/config role`).
+  Le rôle *Personnel* (EMS) est ajouté automatiquement à tout membre qui a au moins un grade, et retiré quand il n’en a plus.
 
 > Le bot ne peut **jamais** renommer le propriétaire du serveur (limite Discord) ni un membre dont le rôle
 > le plus haut est au-dessus du sien. Dans ces cas, il affiche un message clair et l’écrit dans les logs.
@@ -133,7 +134,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 
 1. Déclarer les grades : `/config grade ajouter role:@Directeur prefixe:[Dir.] direction:True`, etc.
    (`/config grade retirer` pour en enlever un).
-2. Associer les rôles techniques : `/config role cle:Citoyen role:@Citoyen`, puis Non vérifié et Absent.
+2. Associer les rôles techniques : `/config role cle:Citoyen role:@Citoyen`, puis Non vérifié, Absent et Personnel (→ @EMS).
 3. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff.
 4. Vérifier : `/config voir` affiche la configuration et **les problèmes détectés** (rôle du bot trop bas, permission manquante…).
 5. Publier les messages fixes :
@@ -141,7 +142,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
    - `/config publier panneau:Absences`
 
    Republier met à jour le message existant (pas de doublon).
-6. Si des membres ont déjà un grade : `/fiche resynchroniser` applique les préfixes à tous ceux qui ont une fiche.
+6. Si des membres ont déjà un grade : `/fiche resynchroniser` applique les préfixes et le rôle EMS.
 
 ---
 
@@ -183,7 +184,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 | `/embed modifier lien: couleur? image?` | Direction | Modifie un embed publié par le bot (formulaire pré-rempli ; `image:aucune` retire l’image) |
 | `/fiche voir membre:` | Direction | Fiche RP d’un membre |
 | `/fiche modifier membre: prenom: nom:` | Direction | Corrige le nom RP et met à jour le pseudo |
-| `/fiche resynchroniser` | Direction | Réapplique « [Grade] Prénom Nom » à tous les membres ayant une fiche |
+| `/fiche resynchroniser` | Direction | Réapplique « [Grade] Prénom Nom » (membres avec fiche) et le rôle EMS (tous les membres) |
 | `/absences liste` | Personnel | Absences en cours et à venir |
 | `/absences nettoyer` | Direction | Retire du salon les fiches terminées/annulées (elles restent en base) |
 

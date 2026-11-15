@@ -23,7 +23,7 @@ import type { Command } from '../core/types.js';
 import { isDirection } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { verificationPanel } from '../verification/panel.js';
-import { MAX_PREFIX_LENGTH, allGrades, removeGrade, upsertGrade } from './grades.js';
+import { MAX_PREFIX_LENGTH, allGrades, gradeRoleIds, removeGrade, upsertGrade } from './grades.js';
 import { CHANNEL_KEYS, ROLE_KEYS, channelSettingKey, roleSettingKey } from './keys.js';
 import { channelId, roleId, setSetting } from './settings.js';
 
@@ -167,6 +167,14 @@ async function setRole(interaction: ChatInputCommandInteraction<'cached'>) {
   const role = interaction.options.getRole('role', true);
   if (role.managed || role.id === interaction.guild.id) {
     await interaction.reply({ content: '❌ Ce rôle ne peut pas être utilisé (rôle géré par une intégration ou @everyone).', flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (key === 'personnel' && gradeRoleIds().includes(role.id)) {
+    await interaction.reply({
+      content: `❌ ${role} est déclaré comme grade : retire-le d’abord avec \`/config grade retirer\`.`,
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] },
+    });
     return;
   }
   await setSetting(roleSettingKey(key), role.id, interaction.user.id);
