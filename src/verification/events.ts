@@ -2,8 +2,7 @@
  * Événements membres : arrivée (rôle Non vérifié) et changement de grade (préfixe du pseudo).
  */
 import type { GuildMember, PartialGuildMember } from 'discord.js';
-import { GRADES } from '../config/keys.js';
-import { roleId } from '../config/settings.js';
+import { gradeRoleIds } from '../config/grades.js';
 import { env } from '../env.js';
 import { safeAddRole } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
@@ -24,7 +23,7 @@ export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember
   if (newMember.guild.id !== env.GUILD_ID || newMember.user.bot) return;
 
   // On ne réagit qu'aux ajouts/retraits de rôles de grade.
-  const gradeIds = GRADES.map((g) => roleId(g.key)).filter((id): id is string => !!id);
+  const gradeIds = gradeRoleIds();
   const changed = oldMember.partial
     ? true
     : gradeIds.some((id) => oldMember.roles.cache.has(id) !== newMember.roles.cache.has(id));

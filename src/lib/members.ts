@@ -3,28 +3,19 @@
  * renommage et rôles ne font jamais planter le bot, ils renvoient un message d'erreur clair.
  */
 import { DiscordAPIError, PermissionFlagsBits, RESTJSONErrorCodes, type GuildMember } from 'discord.js';
-import { GRADES, type Grade } from '../config/keys.js';
+import { hasDirectionGrade, highestGrade } from '../config/grades.js';
 import { roleId } from '../config/settings.js';
 
-/** Direction = rôle Direction configuré, ou administrateur du serveur (utile avant la configuration). */
+export { highestGrade };
+
+/** Direction = un grade marqué « direction », ou administrateur du serveur (utile avant la configuration). */
 export function isDirection(member: GuildMember): boolean {
-  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  const id = roleId('direction');
-  return !!id && member.roles.cache.has(id);
+  return member.permissions.has(PermissionFlagsBits.Administrator) || hasDirectionGrade(member);
 }
 
-/** Personnel = au moins un rôle de grade (Interne → Direction). */
+/** Personnel de l'hôpital = au moins un rôle de grade. */
 export function isStaff(member: GuildMember): boolean {
   return highestGrade(member) !== null;
-}
-
-/** Grade le plus haut du membre (selon l'ordre de GRADES), ou null. */
-export function highestGrade(member: GuildMember): Grade | null {
-  for (const grade of GRADES) {
-    const id = roleId(grade.key);
-    if (id && member.roles.cache.has(id)) return grade;
-  }
-  return null;
 }
 
 /** Résultat d'une opération : null si OK, sinon le message d'erreur à afficher. */

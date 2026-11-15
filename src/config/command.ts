@@ -1,14 +1,16 @@
 /**
  * /config — réservé à la direction (ou aux administrateurs du serveur).
- *   /config role     : associer un rôle Discord à une clé (grade, Citoyen, Non vérifié, Absent)
- *   /config salon    : associer un salon à une clé (#vérification, #absences, logs, staff)
- *   /config voir     : afficher la configuration et les problèmes détectés
- *   /config publier  : (re)publier un message fixe avec ses boutons
+ *   /config grade ajouter : déclarer un rôle comme grade (préfixe du pseudo, accès direction)
+ *   /config grade retirer : ne plus traiter un rôle comme grade
+ *   /config role          : associer un rôle technique (Citoyen, Non vérifié, Absent)
+ *   /config salon         : associer un salon à une fonction (#vérification, #absences, logs, staff)
+ *   /config voir          : afficher la configuration et les problèmes détectés
+ *   /config publier       : (re)publier un message fixe avec ses boutons
  */
 import {
-  InteractionContextType,
   ChannelType,
   EmbedBuilder,
+  InteractionContextType,
   MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -21,6 +23,7 @@ import type { Command } from '../core/types.js';
 import { isDirection } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { verificationPanel } from '../verification/panel.js';
+import { MAX_PREFIX_LENGTH, allGrades, removeGrade, upsertGrade } from './grades.js';
 import { CHANNEL_KEYS, ROLE_KEYS, channelSettingKey, roleSettingKey } from './keys.js';
 import { channelId, roleId, setSetting } from './settings.js';
 
@@ -36,10 +39,37 @@ export const configCommand: Command = {
     .setName('config')
     .setDescription('Configuration du bot (direction)')
     .setContexts(InteractionContextType.Guild)
+    .addSubcommandGroup((g) =>
+      g
+        .setName('grade')
+        .setDescription('Grades de l’hôpital (préfixe du pseudo)')
+        .addSubcommand((s) =>
+          s
+            .setName('ajouter')
+            .setDescription('Déclarer un rôle comme grade (ou modifier son préfixe)')
+            .addRoleOption((o) => o.setName('role').setDescription('Rôle du grade').setRequired(true))
+            .addStringOption((o) =>
+              o
+                .setName('prefixe')
+                .setDescription(`Préfixe du pseudo, ${MAX_PREFIX_LENGTH} caractères max (ex. [Dir.])`)
+                .setRequired(true)
+                .setMaxLength(MAX_PREFIX_LENGTH),
+            )
+            .addBooleanOption((o) =>
+              o.setName('direction').setDescription('Ce grade a-t-il accès aux commandes de direction ? (non par défaut)'),
+            ),
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('retirer')
+            .setDescription('Ne plus traiter ce rôle comme un grade')
+            .addRoleOption((o) => o.setName('role').setDescription('Rôle du grade').setRequired(true)),
+        ),
+    )
     .addSubcommand((s) =>
       s
         .setName('role')
-        .setDescription('Associer un rôle du serveur à un rôle du bot')
+        .setDescription('Associer un rôle du serveur à un rôle technique du bot')
         .addStringOption((o) => o.setName('cle').setDescription('Rôle du bot').setRequired(true).addChoices(...choices(ROLE_KEYS)))
         .addRoleOption((o) => o.setName('role').setDescription('Rôle Discord correspondant').setRequired(true)),
     )
@@ -72,13 +102,65 @@ export const configCommand: Command = {
       await interaction.reply({ content: '⛔ Cette commande est réservée à la direction.', flags: MessageFlags.Ephemeral });
       return;
     }
+    const group = interaction.options.getSubcommandGroup();
     const sub = interaction.options.getSubcommand();
+    if (group === 'grade') return sub === 'ajouter' ? addGrade(interaction) : delGrade(interaction);
     if (sub === 'role') return setRole(interaction);
     if (sub === 'salon') return setChannel(interaction);
     if (sub === 'voir') return show(interaction);
     if (sub === 'publier') return publish(interaction);
   },
 };
+
+function roleAboveBotWarning(guild: Guild, roleIdToCheck: string, action: string): string {
+  const me = guild.members.me;
+  const role = guild.roles.cache.get(roleIdToCheck);
+  return me && role && role.comparePositionTo(me.roles.highest) >= 0
+    ? `\n⚠️ Ce rôle est au-dessus du rôle du bot : le bot ne pourra pas ${action}. Monte le rôle du bot dans la liste des rôles.`
+    : '';
+}
+
+async function addGrade(interaction: ChatInputCommandInteraction<'cached'>) {
+  const role = interaction.options.getRole('role', true);
+  const prefix = interaction.options.getString('prefixe', true).trim();
+  const direction = interaction.options.getBoolean('direction') ?? false;
+  if (role.managed || role.id === interaction.guild.id) {
+    await interaction.reply({ content: '❌ Ce rôle ne peut pas être un grade (rôle d’intégration ou @everyone).', flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (!prefix || prefix.length > MAX_PREFIX_LENGTH) {
+    await interaction.reply({ content: `❌ Le préfixe doit faire entre 1 et ${MAX_PREFIX_LENGTH} caractères.`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await upsertGrade(role.id, prefix, direction);
+  await interaction.reply({
+    content:
+      `✅ Grade ${role} → préfixe **${prefix}**${direction ? ' · accès direction' : ''}` +
+      roleAboveBotWarning(interaction.guild, role.id, 'renommer les membres qui ont ce grade') +
+      '\nPour appliquer le préfixe aux membres qui ont déjà ce rôle : `/fiche resynchroniser`.',
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+  await sendLog(interaction.guild, {
+    title: '⚙️ Grade configuré',
+    description: `${role} → préfixe **${prefix}**${direction ? ' · accès direction' : ''}`,
+    color: LogColor.neutral,
+    actor: interaction.user,
+  });
+}
+
+async function delGrade(interaction: ChatInputCommandInteraction<'cached'>) {
+  const role = interaction.options.getRole('role', true);
+  const removed = await removeGrade(role.id);
+  await interaction.reply({
+    content: removed ? `✅ ${role} n’est plus un grade.` : `ℹ️ ${role} n’était pas un grade.`,
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+  if (removed) {
+    await sendLog(interaction.guild, { title: '⚙️ Grade retiré', description: `${role}`, color: LogColor.neutral, actor: interaction.user });
+  }
+}
 
 async function setRole(interaction: ChatInputCommandInteraction<'cached'>) {
   const key = interaction.options.getString('cle', true);
@@ -88,12 +170,11 @@ async function setRole(interaction: ChatInputCommandInteraction<'cached'>) {
     return;
   }
   await setSetting(roleSettingKey(key), role.id, interaction.user.id);
-  const me = interaction.guild.members.me;
-  const warning =
-    me && role.comparePositionTo(me.roles.highest) >= 0
-      ? `\n⚠️ Ce rôle est au-dessus du rôle du bot : le bot ne pourra pas l’attribuer. Monte le rôle du bot dans la liste.`
-      : '';
-  await interaction.reply({ content: `✅ ${ROLE_KEYS[key]} → ${role}${warning}`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+  await interaction.reply({
+    content: `✅ ${ROLE_KEYS[key]} → ${role}${roleAboveBotWarning(interaction.guild, role.id, 'attribuer ce rôle')}`,
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
   await sendLog(interaction.guild, {
     title: '⚙️ Configuration modifiée',
     description: `Rôle **${ROLE_KEYS[key]}** → ${role}`,
@@ -122,6 +203,10 @@ async function setChannel(interaction: ChatInputCommandInteraction<'cached'>) {
 async function show(interaction: ChatInputCommandInteraction<'cached'>) {
   const guild = interaction.guild;
   const problems = diagnose(guild);
+  const gradeLines = allGrades()
+    .map((g) => ({ g, role: guild.roles.cache.get(g.roleId) }))
+    .sort((a, b) => (b.role?.position ?? -1) - (a.role?.position ?? -1))
+    .map(({ g, role }) => `${role ? `<@&${g.roleId}>` : '⚠️ rôle supprimé'} → **${g.prefix}**${g.direction ? ' · 👑 direction' : ''}`);
   const roles = Object.entries(ROLE_KEYS)
     .map(([k, label]) => {
       const id = roleId(k);
@@ -138,6 +223,7 @@ async function show(interaction: ChatInputCommandInteraction<'cached'>) {
     .setTitle('⚙️ Configuration du bot')
     .setColor(problems.length ? LogColor.warning : LogColor.success)
     .addFields(
+      { name: 'Grades (du plus haut au plus bas)', value: (gradeLines.join('\n') || '— aucun grade (`/config grade ajouter`)').slice(0, 1024) },
       { name: 'Rôles', value: roles },
       { name: 'Salons', value: channels },
       { name: problems.length ? 'Problèmes détectés' : 'Vérifications', value: problems.length ? problems.join('\n').slice(0, 1024) : '✅ Aucun problème détecté.' },
@@ -152,6 +238,12 @@ function diagnose(guild: Guild): string[] {
   if (!me) return ['Le bot n’est pas encore prêt.'];
   if (!me.permissions.has(PermissionFlagsBits.ManageNicknames)) out.push('❌ Permission « Gérer les pseudos » manquante.');
   if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) out.push('❌ Permission « Gérer les rôles » manquante.');
+  if (!allGrades().length) out.push('⚠️ Aucun grade configuré.');
+  for (const g of allGrades()) {
+    const role = guild.roles.cache.get(g.roleId);
+    if (!role) out.push(`❌ Un grade pointe vers un rôle supprimé (préfixe ${g.prefix}) : \`/config grade retirer\`.`);
+    else if (role.comparePositionTo(me.roles.highest) >= 0) out.push(`❌ Le grade ${role} est au-dessus du rôle du bot : ses membres ne pourront pas être renommés.`);
+  }
   for (const [k, label] of Object.entries(ROLE_KEYS)) {
     const id = roleId(k);
     const role = id ? guild.roles.cache.get(id) : undefined;

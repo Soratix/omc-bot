@@ -53,6 +53,9 @@ Un seul bot pour tout : vérification et nom RP, absences du personnel, puis tic
 | Gérer les pseudos | Renommer les membres « [Grade] Prénom Nom » |
 | Gérer les rôles | Non vérifié → Citoyen, rôle Absent |
 
+Facultatif : **Mentionner @everyone** si tu veux que `/embed … mention:@everyone` notifie vraiment tout le monde
+(sans elle, la mention s’affiche mais ne notifie pas ; les mentions de rôles « mentionnables » fonctionnent sans).
+
 La phase 2 (tickets) ajoutera **Gérer les salons** et **Joindre des fichiers** (transcripts).
 
 ---
@@ -61,20 +64,13 @@ La phase 2 (tickets) ajoutera **Gérer les salons** et **Joindre des fichiers** 
 
 ### Rôles
 
-Crée (ou garde) les rôles suivants. **Le rôle du bot doit être placé au-dessus de tous ces rôles** dans
-*Paramètres du serveur → Rôles*, sinon il ne pourra ni les attribuer, ni renommer les membres qui les portent.
+**Le rôle du bot doit être placé au-dessus de tous les rôles qu’il gère** (grades, Citoyen, Non vérifié, Absent)
+dans *Paramètres du serveur → Rôles*, sinon il ne pourra ni les attribuer, ni renommer les membres qui les portent.
 
-| Rôle | Préfixe du pseudo |
-|---|---|
-| Direction | `[Dir.]` |
-| Chef de service | `[CdS]` |
-| Médecin | `[Méd.]` |
-| Infirmier | `[Inf.]` |
-| Ambulancier | `[Amb.]` |
-| Interne / Stagiaire | `[Int.]` |
-| Citoyen | — |
-| Non vérifié | — |
-| Absent | — |
+- **Grades** : n’importe quel rôle peut devenir un grade avec `/config grade ajouter` (rôle, préfixe de 6 caractères
+  maximum, accès direction oui/non). Quand un membre a plusieurs grades, c’est **le rôle le plus haut dans la liste
+  des rôles du serveur** qui donne le préfixe : il suffit de ranger les rôles dans Discord.
+- **Rôles techniques** : *Citoyen*, *Non vérifié*, *Absent* (`/config role`).
 
 > Le bot ne peut **jamais** renommer le propriétaire du serveur (limite Discord) ni un membre dont le rôle
 > le plus haut est au-dessus du sien. Dans ces cas, il affiche un message clair et l’écrit dans les logs.
@@ -133,18 +129,19 @@ docker compose logs -f bot
 
 ## 4. Configuration du bot sur Discord (`/config`)
 
-Réservé à la direction (ou aux administrateurs du serveur tant que le rôle Direction n’est pas configuré).
+Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun grade « direction » n’est configuré).
 
-1. Associer chaque rôle : `/config role cle:Direction role:@Direction`, puis Chef de service, Médecin, Infirmier,
-   Ambulancier, Interne / Stagiaire, Citoyen, Non vérifié, Absent.
-2. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff.
-3. Vérifier : `/config voir` affiche la configuration et **les problèmes détectés** (rôle du bot trop bas, permission manquante…).
-4. Publier les messages fixes :
+1. Déclarer les grades : `/config grade ajouter role:@Directeur prefixe:[Dir.] direction:True`, etc.
+   (`/config grade retirer` pour en enlever un).
+2. Associer les rôles techniques : `/config role cle:Citoyen role:@Citoyen`, puis Non vérifié et Absent.
+3. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff.
+4. Vérifier : `/config voir` affiche la configuration et **les problèmes détectés** (rôle du bot trop bas, permission manquante…).
+5. Publier les messages fixes :
    - `/config publier panneau:Vérification`
    - `/config publier panneau:Absences`
 
    Republier met à jour le message existant (pas de doublon).
-5. Si des membres ont déjà un grade : `/fiche resynchroniser` applique les préfixes à tous ceux qui ont une fiche.
+6. Si des membres ont déjà un grade : `/fiche resynchroniser` applique les préfixes à tous ceux qui ont une fiche.
 
 ---
 
@@ -163,7 +160,7 @@ Réservé à la direction (ou aux administrateurs du serveur tant que le rôle D
 
 ### Absences
 
-- Bouton **Déclarer une absence** (personnel uniquement : Interne → Direction) → début, fin (JJ/MM/AAAA), motif facultatif.
+- Bouton **Déclarer une absence** (personnel uniquement : membres ayant au moins un grade) → début, fin (JJ/MM/AAAA), motif facultatif.
 - Une fiche (embed) est publiée dans `#absences` avec les boutons **Je suis revenu**, **Prolonger**, **Annuler**
   (auteur ou direction). La fiche est modifiée à chaque changement, jamais dupliquée.
 - Statuts : 🔵 À venir · 🟡 En cours · 🔴 Retour non confirmé · 🟢 Terminée · ⚫ Annulée.
@@ -181,7 +178,9 @@ Réservé à la direction (ou aux administrateurs du serveur tant que le rôle D
 
 | Commande | Qui | Effet |
 |---|---|---|
-| `/config role` · `salon` · `voir` · `publier` | Direction | Configuration (voir §4) |
+| `/config grade ajouter` · `grade retirer` · `role` · `salon` · `voir` · `publier` | Direction | Configuration (voir §4) |
+| `/embed envoyer salon? couleur? image? mention?` | Direction | Publie un embed ; titre, contenu (Markdown, retours à la ligne) et pied de page se saisissent dans un formulaire |
+| `/embed modifier lien: couleur? image?` | Direction | Modifie un embed publié par le bot (formulaire pré-rempli ; `image:aucune` retire l’image) |
 | `/fiche voir membre:` | Direction | Fiche RP d’un membre |
 | `/fiche modifier membre: prenom: nom:` | Direction | Corrige le nom RP et met à jour le pseudo |
 | `/fiche resynchroniser` | Direction | Réapplique « [Grade] Prénom Nom » à tous les membres ayant une fiche |
@@ -278,10 +277,11 @@ src/
   index.ts            point d'entrée (client Discord, événements, arrêt propre)
   env.ts, logger.ts   variables d'environnement, journal console
   db/                 connexion, schéma Drizzle, migrations au démarrage
-  config/             clés de configuration, paramètres en base, /config
+  config/             grades, clés de configuration, paramètres en base, /config
   logs/               écriture dans le salon de logs
   lib/                dates, noms RP, droits et opérations Discord sûres
   core/               routage des interactions, messages fixes
   verification/       fiche RP, pseudo + préfixe de grade, /fiche
+  annonces/           /embed (messages embed personnalisés)
   absences/           déclaration, fiches, tâche quotidienne, /absences
 ```

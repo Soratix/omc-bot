@@ -2,7 +2,7 @@
  * Schéma de la base de données (Drizzle ORM).
  * Après toute modification : `npm run db:generate` pour créer la migration SQL versionnée.
  */
-import { date, index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { boolean, date, index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 /** Paramètres configurables (IDs de salons, de rôles, de messages fixes). Clé → valeur. */
 export const settings = pgTable('settings', {
@@ -10,6 +10,18 @@ export const settings = pgTable('settings', {
   value: varchar('value', { length: 64 }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   updatedBy: varchar('updated_by', { length: 32 }),
+});
+
+/**
+ * Grades de l'hôpital : un rôle Discord + un préfixe de pseudo.
+ * Le grade affiché est celui dont le rôle est le plus haut dans la hiérarchie Discord.
+ * `direction` : les membres de ce grade ont accès aux commandes de direction.
+ */
+export const grades = pgTable('grades', {
+  roleId: varchar('role_id', { length: 32 }).primaryKey(),
+  prefix: varchar('prefix', { length: 16 }).notNull(),
+  direction: boolean('direction').notNull().default(false),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** Fiche RP d'un membre (créée à la vérification). */
@@ -52,6 +64,7 @@ export const absences = pgTable(
   (t) => [index('absences_user_idx').on(t.userId), index('absences_status_idx').on(t.status)],
 );
 
-export type Fiche = typeof fiches.$inferSelect;
+export type GradeRow = typeof grades.$inferSelect;
+export type Fiche =typeof fiches.$inferSelect;
 export type Absence = typeof absences.$inferSelect;
 export type AbsenceStatus = (typeof absenceStatus.enumValues)[number];

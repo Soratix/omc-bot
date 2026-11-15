@@ -4,6 +4,7 @@
 import { Client, Events, GatewayIntentBits, OAuth2Scopes, PermissionFlagsBits } from 'discord.js';
 import type { Cron } from 'croner';
 import { startAbsenceScheduler } from './absences/scheduler.js';
+import { loadGrades } from './config/grades.js';
 import { loadSettings } from './config/settings.js';
 import { commands, handleInteraction } from './core/interactions.js';
 import { closeDatabase, initDatabase } from './db/index.js';
@@ -65,6 +66,7 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 
 await initDatabase();
 await loadSettings();
+await loadGrades();
 try {
   await client.login(env.DISCORD_TOKEN);
 } catch (err) {

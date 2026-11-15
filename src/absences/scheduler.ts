@@ -12,7 +12,8 @@
  */
 import { Cron } from 'croner';
 import { EmbedBuilder, type Client, type Guild } from 'discord.js';
-import { channelId, roleId } from '../config/settings.js';
+import { allGrades } from '../config/grades.js';
+import { channelId } from '../config/settings.js';
 import type { Absence } from '../db/schema.js';
 import { env } from '../env.js';
 import { TIMEZONE, daysBetween, formatFr, todayParis } from '../lib/dates.js';
@@ -118,14 +119,17 @@ async function sendReminder(guild: Guild, a: Absence): Promise<void> {
 
 async function alertDirection(guild: Guild, a: Absence): Promise<void> {
   const name = await displayRpName(null, a.userId);
-  const directionRole = roleId('direction');
+  // Mentionne tous les grades marqués « direction ».
+  const directionRoles = allGrades()
+    .filter((g) => g.direction && guild.roles.cache.has(g.roleId))
+    .map((g) => g.roleId);
   const text = `🔴 **Retour non confirmé** : <@${a.userId}> (**${name}**) devait revenir le **${formatFr(a.endDate)}** et n’a pas répondu au rappel depuis ${env.ABSENCE_CONFIRM_DAYS} jour(s).`;
   const staffId = channelId('staff');
   const staff = staffId ? await guild.channels.fetch(staffId).catch(() => null) : null;
   if (staff?.isSendable()) {
     await staff.send({
-      content: `${directionRole ? `<@&${directionRole}> ` : ''}${text}`,
-      allowedMentions: { roles: directionRole ? [directionRole] : [] },
+      content: `${directionRoles.map((id) => `<@&${id}>`).join(' ')} ${text}`.trim(),
+      allowedMentions: { roles: directionRoles },
     });
   }
   await sendLog(guild, {

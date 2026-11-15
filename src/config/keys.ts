@@ -1,26 +1,10 @@
 /**
- * Clés de configuration : rôles et salons réglables via /config.
- * Les grades sont listés du plus haut au plus bas ; l'ordre détermine le préfixe affiché.
+ * Clés de configuration : rôles techniques et salons réglables via /config.
+ * Les grades (rôle + préfixe) sont gérés à part : voir config/grades.ts et /config grade.
  */
 
-export interface Grade {
-  key: string;
-  label: string;
-  prefix: string;
-}
-
-export const GRADES: readonly Grade[] = [
-  { key: 'direction', label: 'Direction', prefix: '[Dir.]' },
-  { key: 'chef_service', label: 'Chef de service', prefix: '[CdS]' },
-  { key: 'medecin', label: 'Médecin', prefix: '[Méd.]' },
-  { key: 'infirmier', label: 'Infirmier', prefix: '[Inf.]' },
-  { key: 'ambulancier', label: 'Ambulancier', prefix: '[Amb.]' },
-  { key: 'interne', label: 'Interne / Stagiaire', prefix: '[Int.]' },
-];
-
-/** Rôles configurables : grades + rôles techniques. */
+/** Rôles techniques configurables. */
 export const ROLE_KEYS: Record<string, string> = {
-  ...Object.fromEntries(GRADES.map((g) => [g.key, g.label])),
   citoyen: 'Citoyen',
   non_verifie: 'Non vérifié',
   absent: 'Absent',
