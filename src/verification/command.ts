@@ -13,6 +13,7 @@ import { formatFrDateTime } from '../lib/dates.js';
 import { highestGrade, isDirection } from '../lib/members.js';
 import { validateRpName } from '../lib/names.js';
 import { LogColor, sendLog } from '../logs/index.js';
+import { refreshDossier } from '../dossiers/service.js';
 import { syncStaffRole } from './events.js';
 import { expectedNickname, getFiche, saveFiche, syncNickname } from './fiches.js';
 
@@ -87,6 +88,7 @@ async function edit(interaction: ChatInputCommandInteraction<'cached'>) {
   const before = await getFiche(user.id);
   await saveFiche(user.id, result.prenom, result.nom, interaction.user.id);
 
+  await refreshDossier(interaction.guild, user.id);
   let status = 'Le membre n’est plus sur le serveur : seule la fiche a été modifiée.';
   if (member) {
     const nick = await syncNickname(member, `Fiche corrigée par ${interaction.user.tag}`);

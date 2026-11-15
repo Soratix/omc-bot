@@ -15,6 +15,7 @@ import type { ComponentHandler } from '../core/types.js';
 import { safeAddRole, safeRemoveRole } from '../lib/members.js';
 import { validateRpName } from '../lib/names.js';
 import { LogColor, sendLog } from '../logs/index.js';
+import { refreshDossier } from '../dossiers/service.js';
 import { getFiche, saveFiche, syncNickname } from './fiches.js';
 
 export const verificationHandler: ComponentHandler = {
@@ -96,6 +97,8 @@ async function submitForm(interaction: ModalSubmitInteraction) {
   ].filter((e): e is string => !!e);
   const nick = await syncNickname(member, reason);
   if (nick.changed && nick.error) errors.push(nick.error);
+  // Si le membre avait déjà un dossier (rôle EMS donné avant la fiche), on le renomme avec le nom RP.
+  await refreshDossier(interaction.guild, member.id);
 
   if (errors.length) {
     await interaction.editReply(

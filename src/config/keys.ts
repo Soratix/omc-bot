@@ -17,7 +17,12 @@ export const CHANNEL_KEYS: Record<string, string> = {
   absences: '#absences (déclaration et fiches d’absence)',
   logs: 'Salon de logs du bot',
   staff: 'Salon staff (alertes absences, MP fermés)',
+  dossiers: 'Forum des dossiers du personnel (direction)',
+  gestion: '#gestion-secrétaire (avertissements et sanctions)',
 };
+
+/** Salons qui doivent être des forums (les autres sont des salons textuels). */
+export const FORUM_CHANNEL_KEYS = new Set(['dossiers']);
 
 export const roleSettingKey = (key: string) => `role_${key}`;
 export const channelSettingKey = (key: string) => `channel_${key}`;

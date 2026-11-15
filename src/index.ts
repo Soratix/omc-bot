@@ -10,7 +10,7 @@ import { commands, handleInteraction } from './core/interactions.js';
 import { closeDatabase, initDatabase } from './db/index.js';
 import { env } from './env.js';
 import { logger } from './logger.js';
-import { onMemberJoin, onMemberUpdate } from './verification/events.js';
+import { onMemberJoin, onMemberLeave, onMemberUpdate } from './verification/events.js';
 
 /** Permissions minimales demandées à l'invitation (phase 1). */
 export const BOT_PERMISSIONS = [
@@ -20,6 +20,9 @@ export const BOT_PERMISSIONS = [
   PermissionFlagsBits.ReadMessageHistory,
   PermissionFlagsBits.ManageNicknames,
   PermissionFlagsBits.ManageRoles,
+  // Forum des dossiers du personnel : écrire dans les posts, les archiver et les verrouiller.
+  PermissionFlagsBits.SendMessagesInThreads,
+  PermissionFlagsBits.ManageThreads,
 ];
 
 const client = new Client({
@@ -48,6 +51,7 @@ client.once(Events.ClientReady, async (c) => {
 
 client.on(Events.InteractionCreate, (interaction) => void handleInteraction(interaction));
 client.on(Events.GuildMemberAdd, (member) => void onMemberJoin(member).catch((err) => logger.error('guildMemberAdd', err)));
+client.on(Events.GuildMemberRemove, (member) => void onMemberLeave(member).catch((err) => logger.error('guildMemberRemove', err)));
 client.on(Events.GuildMemberUpdate, (oldM, newM) => void onMemberUpdate(oldM, newM).catch((err) => logger.error('guildMemberUpdate', err)));
 client.on(Events.Error, (err) => logger.error('Erreur du client Discord', err));
 client.on(Events.Warn, (msg) => logger.warn(msg));

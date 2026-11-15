@@ -39,7 +39,7 @@ Un seul bot pour tout : vérification et nom RP, absences du personnel, puis tic
 4. Invite le bot avec ce lien (remplace `APPLICATION_ID`) :
 
    ```
-   https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot+applications.commands&permissions=402738176
+   https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot+applications.commands&permissions=292460514304
    ```
 
 ### Permissions demandées (phase 1)
@@ -51,7 +51,9 @@ Un seul bot pour tout : vérification et nom RP, absences du personnel, puis tic
 | Intégrer des liens | Embeds |
 | Voir les anciens messages | Retrouver et modifier ses messages (fiches, messages fixes) |
 | Gérer les pseudos | Renommer les membres « [Grade] Prénom Nom » |
-| Gérer les rôles | Non vérifié → Citoyen, rôle Absent |
+| Gérer les rôles | Non vérifié → Citoyen, rôle Absent, rôle EMS |
+| Envoyer des messages dans les fils | Écrire dans les posts du forum des dossiers |
+| Gérer les fils | Archiver, verrouiller et renommer les dossiers |
 
 Facultatif : **Mentionner @everyone** si tu veux que `/embed … mention:@everyone` notifie vraiment tout le monde
 (sans elle, la mention s’affiche mais ne notifie pas ; les mentions de rôles « mentionnables » fonctionnent sans).
@@ -84,6 +86,8 @@ dans *Paramètres du serveur → Rôles*, sinon il ne pourra ni les attribuer, n
 | `#absences` | Visible par le personnel. Personne ne peut y écrire (seul le bot publie). |
 | `#logs-bot` | Visible par la direction uniquement. |
 | `#staff` (alertes) | Visible par le personnel (rappels si MP fermés, alertes « retour non confirmé »). |
+| `#dossiers-personnel` (**forum**) | Visible par la direction uniquement. Le bot y crée un post par membre EMS. Facultatif : crée les tags **Actif** et **Archivé**, le bot les appliquera. |
+| `#gestion-secrétaire` | Visible par la direction uniquement (boutons Avertissement / Sanction). |
 
 Pour que *Non vérifié* ne voie que `#vérification` : retire **Voir les salons** à `@everyone` sur les catégories,
 donne-le à *Citoyen* (et aux grades), et sur `#vérification` donne-le à *Non vérifié*.
@@ -102,7 +106,8 @@ Le bot **n’ouvre aucun port** : il se connecte seulement à Discord. La base n
 sudo mkdir /opt/omc-bot && sudo chown "$USER":"$USER" /opt/omc-bot
 
 # 2. Récupérer le code (dépôt GitHub privé, via une clé de déploiement en lecture seule)
-git clone git@github.com:Soratix/omc-bot.git /opt/omc-bot
+# (la clé ~/.ssh/omc_bot_deploy est déclarée comme clé de déploiement GitHub, alias « github-omc-bot » dans ~/.ssh/config)
+git clone git@github-omc-bot:Soratix/omc-bot.git /opt/omc-bot
 cd /opt/omc-bot
 
 # 3. Configuration
@@ -135,11 +140,12 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 1. Déclarer les grades : `/config grade ajouter role:@Directeur prefixe:[Dir.] direction:True`, etc.
    (`/config grade retirer` pour en enlever un).
 2. Associer les rôles techniques : `/config role cle:Citoyen role:@Citoyen`, puis Non vérifié, Absent et Personnel (→ @EMS).
-3. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff.
+3. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff, dossiers (forum) et gestion.
 4. Vérifier : `/config voir` affiche la configuration et **les problèmes détectés** (rôle du bot trop bas, permission manquante…).
 5. Publier les messages fixes :
    - `/config publier panneau:Vérification`
    - `/config publier panneau:Absences`
+   - `/config publier panneau:Gestion`
 
    Republier met à jour le message existant (pas de doublon).
 6. Si des membres ont déjà un grade : `/fiche resynchroniser` applique les préfixes et le rôle EMS.
@@ -158,6 +164,19 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 - Quand la direction ajoute ou retire un rôle de grade, le préfixe est mis à jour automatiquement
   (c’est le grade le plus haut qui compte).
 - Un membre qui revient sur le serveur retrouve son ancienne fiche pré-remplie.
+
+### Dossiers du personnel
+
+- Quand un membre reçoit le rôle **EMS** (à la main, ou automatiquement avec un grade), le bot crée un post
+  « Prénom Nom » dans le forum des dossiers, avec une fiche récapitulative (grade, date d’embauche, nombre
+  d’absences, d’avertissements et de sanctions) mise à jour automatiquement.
+- Y sont inscrits automatiquement : embauche, changements de grade, absences (déclaration, retour, prolongation,
+  annulation, retour non confirmé), avertissements, sanctions et notes de la direction.
+- Rôle EMS retiré ou départ du serveur → dossier **archivé et verrouillé** (« 🗄️ Prénom Nom »), jamais supprimé.
+  S’il revient dans le personnel, le dossier est rouvert.
+- **Avertissement / Sanction** : boutons dans `#gestion-secrétaire` → formulaire « ID Discord du membre + raison ».
+  Le membre doit avoir un dossier.
+- Membres déjà EMS avant l’installation : `/dossier synchroniser` crée leurs dossiers.
 
 ### Absences
 
@@ -185,6 +204,9 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 | `/fiche voir membre:` | Direction | Fiche RP d’un membre |
 | `/fiche modifier membre: prenom: nom:` | Direction | Corrige le nom RP et met à jour le pseudo |
 | `/fiche resynchroniser` | Direction | Réapplique « [Grade] Prénom Nom » (membres avec fiche) et le rôle EMS (tous les membres) |
+| `/dossier voir membre:` | Direction | Résumé du dossier et derniers événements |
+| `/dossier note membre: texte:` | Direction | Ajoute une note au dossier |
+| `/dossier synchroniser` | Direction | Crée / rouvre / archive les dossiers selon le rôle EMS de chaque membre |
 | `/absences liste` | Personnel | Absences en cours et à venir |
 | `/absences nettoyer` | Direction | Retire du salon les fiches terminées/annulées (elles restent en base) |
 
@@ -284,5 +306,6 @@ src/
   core/               routage des interactions, messages fixes
   verification/       fiche RP, pseudo + préfixe de grade, /fiche
   annonces/           /embed (messages embed personnalisés)
+  dossiers/           dossiers du personnel (forum), avertissements/sanctions, /dossier
   absences/           déclaration, fiches, tâche quotidienne, /absences
 ```

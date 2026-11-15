@@ -21,6 +21,7 @@ import { env } from '../env.js';
 import { formatFr, parseFrDate, todayParis } from '../lib/dates.js';
 import { isDirection, isStaff } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
+import { addDossierEvent } from '../dossiers/service.js';
 import { displayRpName } from '../verification/fiches.js';
 import { createAbsence, findOverlapping, getAbsence, isActive } from './repo.js';
 import { afterCreate, cancelAbsence, extendAbsence, markReturned } from './service.js';
@@ -170,6 +171,13 @@ async function submitDeclare(interaction: ModalSubmitInteraction) {
       ...(roleError ? [{ name: '⚠️ Rôle Absent', value: roleError }] : []),
     ],
   });
+  await addDossierEvent(
+    interaction.guild,
+    member.id,
+    'absence',
+    `Absence déclarée du **${formatFr(start)}** au **${formatFr(end)}** (n°${absence.id}).${reason ? `
+Motif : ${reason}` : ''}`,
+  );
 }
 
 // ── Retour ──────────────────────────────────────────────────────────────────
@@ -188,6 +196,7 @@ async function onReturn(interaction: ButtonInteraction, id: number) {
     actor: absence.userId === interaction.user.id ? undefined : interaction.user,
     fields: [{ name: 'Absence', value: `n°${absence.id} — ${formatFr(absence.startDate)} → ${formatFr(absence.endDate)}` }],
   });
+  await addDossierEvent(ctx.guild, absence.userId, 'absence', `🟢 Retour confirmé (absence n°${absence.id}, ${formatFr(absence.startDate)} → ${formatFr(absence.endDate)}).`, absence.userId === interaction.user.id ? null : interaction.user.id);
 }
 
 // ── Prolongation ────────────────────────────────────────────────────────────
@@ -241,6 +250,7 @@ async function submitExtend(interaction: ModalSubmitInteraction, id: number) {
       { name: 'N°', value: String(absence.id), inline: true },
     ],
   });
+  await addDossierEvent(ctx.guild, absence.userId, 'absence', `Absence n°${absence.id} prolongée : fin le **${formatFr(oldEnd)}** → **${formatFr(newEnd)}**.`, absence.userId === interaction.user.id ? null : interaction.user.id);
 }
 
 // ── Annulation (avec confirmation) ──────────────────────────────────────────
@@ -273,4 +283,5 @@ async function onCancel(interaction: ButtonInteraction, id: number) {
     actor: absence.userId === interaction.user.id ? undefined : interaction.user,
     fields: [{ name: 'Absence', value: `n°${absence.id} — ${formatFr(absence.startDate)} → ${formatFr(absence.endDate)}` }],
   });
+  await addDossierEvent(ctx.guild, absence.userId, 'absence', `⚫ Absence n°${absence.id} annulée (${formatFr(absence.startDate)} → ${formatFr(absence.endDate)}).`, absence.userId === interaction.user.id ? null : interaction.user.id);
 }

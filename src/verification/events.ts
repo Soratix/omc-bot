@@ -6,7 +6,8 @@ import type { GuildMember, PartialGuildMember } from 'discord.js';
 import { gradeRoleIds } from '../config/grades.js';
 import { env } from '../env.js';
 import { roleId } from '../config/settings.js';
-import { isStaff, safeAddRole, safeRemoveRole, type OpError } from '../lib/members.js';
+import { addDossierEvent, archiveOnLeave, reconcileDossier } from '../dossiers/service.js';
+import { highestGrade, isStaff, safeAddRole, safeRemoveRole, type OpError } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { syncNickname } from './fiches.js';
 
@@ -21,15 +22,37 @@ export async function onMemberJoin(member: GuildMember): Promise<void> {
   });
 }
 
+export async function onMemberLeave(member: GuildMember | PartialGuildMember): Promise<void> {
+  if (member.guild.id !== env.GUILD_ID || member.user?.bot) return;
+  if (await archiveOnLeave(member.guild, member.id)) {
+    await sendLog(member.guild, { title: '🗄️ Dossier archivé (départ du serveur)', color: LogColor.neutral, target: member.user ?? undefined });
+  }
+}
+
 export async function onMemberUpdate(oldMember: GuildMember | PartialGuildMember, newMember: GuildMember): Promise<void> {
   if (newMember.guild.id !== env.GUILD_ID || newMember.user.bot) return;
 
-  // On ne réagit qu'aux ajouts/retraits de rôles de grade.
-  const gradeIds = gradeRoleIds();
+  // On ne réagit qu'aux ajouts/retraits de rôles de grade ou du rôle du personnel (EMS).
+  const personnelId = roleId('personnel');
+  const watched = personnelId ? [...gradeRoleIds(), personnelId] : gradeRoleIds();
   const changed = oldMember.partial
     ? true
-    : gradeIds.some((id) => oldMember.roles.cache.has(id) !== newMember.roles.cache.has(id));
+    : watched.some((id) => oldMember.roles.cache.has(id) !== newMember.roles.cache.has(id));
   if (!changed) return;
+
+  // Dossier du personnel : créé / rouvert / archivé selon le rôle EMS.
+  const dossier = await reconcileDossier(newMember);
+  if (dossier) {
+    const titles = { cree: '📁 Dossier du personnel créé', rouvert: '📁 Dossier du personnel rouvert', archive: '🗄️ Dossier du personnel archivé' };
+    await sendLog(newMember.guild, { title: titles[dossier], color: LogColor.info, target: newMember.user });
+  }
+
+  // Changement de grade inscrit dans le dossier (si le dossier existait déjà).
+  if (!oldMember.partial && dossier !== 'cree') {
+    const before = highestGrade(oldMember)?.label ?? 'aucun';
+    const after = highestGrade(newMember)?.label ?? 'aucun';
+    if (before !== after) await addDossierEvent(newMember.guild, newMember.id, 'grade', `**${before}** → **${after}**`);
+  }
 
   // Rôle commun du personnel (EMS) : présent dès qu'il y a au moins un grade.
   const staffRole = await syncStaffRole(newMember, 'Changement de grade');

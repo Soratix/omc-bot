@@ -19,6 +19,7 @@ import { env } from '../env.js';
 import { TIMEZONE, daysBetween, formatFr, todayParis } from '../lib/dates.js';
 import { logger } from '../logger.js';
 import { LogColor, sendLog } from '../logs/index.js';
+import { addDossierEvent } from '../dossiers/service.js';
 import { displayRpName } from '../verification/fiches.js';
 import { absenceButtons, refreshAbsenceMessage } from './render.js';
 import { listActive, updateAbsence } from './repo.js';
@@ -132,6 +133,7 @@ async function alertDirection(guild: Guild, a: Absence): Promise<void> {
       allowedMentions: { roles: directionRoles },
     });
   }
+  await addDossierEvent(guild, a.userId, 'absence', `🔴 Retour non confirmé : fin d’absence prévue le **${formatFr(a.endDate)}**, pas de réponse au rappel.`);
   await sendLog(guild, {
     title: '🔴 Retour d’absence non confirmé',
     description: text,

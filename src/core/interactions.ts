@@ -7,14 +7,16 @@ import { absencesCommand } from '../absences/command.js';
 import { absencesHandler } from '../absences/handlers.js';
 import { embedCommand, embedHandler } from '../annonces/embed.js';
 import { configCommand } from '../config/command.js';
+import { dossierCommand } from '../dossiers/command.js';
+import { gestionHandler } from '../dossiers/gestion.js';
 import { logger } from '../logger.js';
 import { ficheCommand } from '../verification/command.js';
 import { verificationHandler } from '../verification/handlers.js';
 import type { Command, ComponentHandler } from './types.js';
 
-export const commands: Command[] = [configCommand, ficheCommand, absencesCommand, embedCommand];
+export const commands: Command[] = [configCommand, ficheCommand, absencesCommand, embedCommand, dossierCommand];
 const commandMap = new Map(commands.map((c) => [c.data.name, c]));
-const handlers = new Map<string, ComponentHandler>([verificationHandler, absencesHandler, embedHandler].map((h) => [h.prefix, h]));
+const handlers = new Map<string, ComponentHandler>([verificationHandler, absencesHandler, embedHandler, gestionHandler].map((h) => [h.prefix, h]));
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
   try {

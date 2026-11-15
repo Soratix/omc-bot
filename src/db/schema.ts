@@ -64,7 +64,46 @@ export const absences = pgTable(
   (t) => [index('absences_user_idx').on(t.userId), index('absences_status_idx').on(t.status)],
 );
 
-export type GradeRow = typeof grades.$inferSelect;
+/** Dossier du personnel : un post dans le forum « Dossiers », créé quand un membre reçoit le rôle EMS. */
+export const dossiers = pgTable('dossiers', {
+  userId: varchar('user_id', { length: 32 }).primaryKey(),
+  /** ID du post (fil) dans le forum. */
+  threadId: varchar('thread_id', { length: 32 }),
+  archived: boolean('archived').notNull().default(false),
+  /** Date de la première embauche (AAAA-MM-JJ). */
+  hiredOn: date('hired_on', { mode: 'string' }).notNull(),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const dossierEventType = pgEnum('dossier_event_type', [
+  'embauche',
+  'depart',
+  'reintegration',
+  'grade',
+  'absence',
+  'avertissement',
+  'sanction',
+  'note',
+]);
+
+/** Historique d'un dossier (tout ce qui est écrit dans le post du forum). */
+export const dossierEvents = pgTable(
+  'dossier_events',
+  {
+    id: serial('id').primaryKey(),
+    userId: varchar('user_id', { length: 32 }).notNull(),
+    type: dossierEventType('type').notNull(),
+    details: text('details').notNull(),
+    byUserId: varchar('by_user_id', { length: 32 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('dossier_events_user_idx').on(t.userId)],
+);
+
+export type Dossier = typeof dossiers.$inferSelect;
+export type DossierEventType = (typeof dossierEventType.enumValues)[number];
+export type GradeRow =typeof grades.$inferSelect;
 export type Fiche =typeof fiches.$inferSelect;
 export type Absence = typeof absences.$inferSelect;
 export type AbsenceStatus = (typeof absenceStatus.enumValues)[number];

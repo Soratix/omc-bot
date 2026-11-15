@@ -19,17 +19,19 @@ import {
 } from 'discord.js';
 import { absencesPanel } from '../absences/panel.js';
 import { publishPanel } from '../core/panels.js';
+import { gestionPanel } from '../dossiers/gestion.js';
 import type { Command } from '../core/types.js';
 import { isDirection } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { verificationPanel } from '../verification/panel.js';
 import { MAX_PREFIX_LENGTH, allGrades, gradeRoleIds, removeGrade, upsertGrade } from './grades.js';
-import { CHANNEL_KEYS, ROLE_KEYS, channelSettingKey, roleSettingKey } from './keys.js';
+import { CHANNEL_KEYS, FORUM_CHANNEL_KEYS, ROLE_KEYS, channelSettingKey, roleSettingKey } from './keys.js';
 import { channelId, roleId, setSetting } from './settings.js';
 
 const PANELS: Record<string, { label: string; channelKey: string; build: () => ReturnType<typeof verificationPanel> }> = {
   verification: { label: 'Vérification (Créer ma fiche)', channelKey: 'verification', build: verificationPanel },
   absences: { label: 'Absences (Déclarer une absence)', channelKey: 'absences', build: absencesPanel },
+  gestion: { label: 'Gestion (Avertissement / Sanction)', channelKey: 'gestion', build: gestionPanel },
 };
 
 const choices = (rec: Record<string, string>) => Object.entries(rec).map(([value, name]) => ({ name, value }));
@@ -79,7 +81,11 @@ export const configCommand: Command = {
         .setDescription('Associer un salon à une fonction du bot')
         .addStringOption((o) => o.setName('cle').setDescription('Fonction').setRequired(true).addChoices(...choices(CHANNEL_KEYS)))
         .addChannelOption((o) =>
-          o.setName('salon').setDescription('Salon textuel').setRequired(true).addChannelTypes(ChannelType.GuildText),
+          o
+            .setName('salon')
+            .setDescription('Salon textuel (ou forum pour les dossiers)')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildForum),
         ),
     )
     .addSubcommand((s) => s.setName('voir').setDescription('Afficher la configuration actuelle et les problèmes détectés'))
@@ -193,12 +199,24 @@ async function setRole(interaction: ChatInputCommandInteraction<'cached'>) {
 
 async function setChannel(interaction: ChatInputCommandInteraction<'cached'>) {
   const key = interaction.options.getString('cle', true);
-  const channel = interaction.options.getChannel('salon', true, [ChannelType.GuildText]);
+  const channel = interaction.options.getChannel('salon', true, [ChannelType.GuildText, ChannelType.GuildForum]);
+  const wantsForum = FORUM_CHANNEL_KEYS.has(key);
+  if (wantsForum !== (channel.type === ChannelType.GuildForum)) {
+    await interaction.reply({
+      content: wantsForum ? '❌ Ce réglage attend un **salon forum**.' : '❌ Ce réglage attend un **salon textuel** (pas un forum).',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
   await setSetting(channelSettingKey(key), channel.id, interaction.user.id);
   const me = interaction.guild.members.me;
   const perms = me ? channel.permissionsFor(me) : null;
   const needed = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory];
-  const warning = perms && !perms.has(needed) ? `\n⚠️ Le bot n’a pas toutes les permissions dans ce salon (voir, écrire, intégrer des liens, lire l’historique).` : '';
+  if (wantsForum) needed.push(PermissionFlagsBits.SendMessagesInThreads, PermissionFlagsBits.ManageThreads);
+  const warning =
+    perms && !perms.has(needed)
+      ? `\n⚠️ Le bot n’a pas toutes les permissions dans ce salon (voir, écrire, intégrer des liens, lire l’historique${wantsForum ? ', écrire dans les fils, gérer les fils' : ''}).`
+      : '';
   await interaction.reply({ content: `✅ ${CHANNEL_KEYS[key]} → ${channel}${warning}`, flags: MessageFlags.Ephemeral });
   await sendLog(interaction.guild, {
     title: '⚙️ Configuration modifiée',
