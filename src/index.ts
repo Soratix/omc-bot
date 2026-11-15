@@ -74,11 +74,22 @@ await loadGrades();
 try {
   await client.login(env.DISCORD_TOKEN);
 } catch (err) {
-  const code = (err as { code?: string }).code;
-  if (code === 'TokenInvalid') logger.error('Token Discord invalide : vérifie DISCORD_TOKEN dans le fichier .env.');
-  else if (code === 'DisallowedIntents') {
+  const { code, message = '' } = err as { code?: string | number; message?: string };
+  let fatal = true;
+  if (code === 'TokenInvalid' || /invalid token|authentication failed/i.test(message)) {
+    logger.error('Token Discord invalide : vérifie DISCORD_TOKEN dans le fichier .env.');
+  } else if (code === 'DisallowedIntents' || code === 4014 || /disallowed intents/i.test(message)) {
     logger.error('Intent « Server Members » non activé : Developer Portal > Bot > Privileged Gateway Intents > SERVER MEMBERS INTENT.');
-  } else logger.error('Connexion à Discord impossible', err);
+  } else {
+    fatal = false;
+    logger.error('Connexion à Discord impossible', err);
+  }
   await closeDatabase();
+  // Erreur de configuration : on attend avant de quitter pour ne pas épuiser
+  // le quota quotidien de connexions Discord à cause des redémarrages automatiques.
+  if (fatal) {
+    logger.error('Nouvel essai dans 60 secondes (corrige la configuration, le bot redémarrera tout seul).');
+    await new Promise((r) => setTimeout(r, 60_000));
+  }
   process.exit(1);
 }
