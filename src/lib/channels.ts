@@ -14,11 +14,21 @@ const FORUM_LABELS: [bigint, string][] = [
   [PermissionFlagsBits.ManageThreads, 'Gérer les fils'],
 ];
 
+const CATEGORY_LABELS: [bigint, string][] = [
+  [PermissionFlagsBits.ManageChannels, 'Gérer les salons'],
+  [PermissionFlagsBits.AttachFiles, 'Joindre des fichiers'],
+];
+
 /** Permissions qui manquent au bot dans ce salon (liste vide = tout va bien). */
 export function missingBotPerms(channel: GuildBasedChannel): string[] {
   const me = channel.guild.members.me;
   if (!me) return ['bot non prêt'];
   const perms = channel.permissionsFor(me);
-  const needed = channel.type === ChannelType.GuildForum ? [...LABELS, ...FORUM_LABELS] : LABELS;
+  const needed =
+    channel.type === ChannelType.GuildForum
+      ? [...LABELS, ...FORUM_LABELS]
+      : channel.type === ChannelType.GuildCategory
+        ? [...LABELS, ...CATEGORY_LABELS]
+        : LABELS;
   return needed.filter(([flag]) => !perms.has(flag)).map(([, label]) => label);
 }

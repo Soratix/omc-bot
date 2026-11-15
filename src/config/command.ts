@@ -16,24 +16,27 @@ import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
   type Guild,
+  type MessageCreateOptions,
 } from 'discord.js';
 import { absencesPanel } from '../absences/panel.js';
 import { publishPanel } from '../core/panels.js';
 import { gestionPanel } from '../dossiers/gestion.js';
+import { ticketsPanel } from '../tickets/panel.js';
 import type { Command } from '../core/types.js';
 import { missingBotPerms } from '../lib/channels.js';
 import { isDirection } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { verificationPanel } from '../verification/panel.js';
 import { MAX_PREFIX_LENGTH, allGrades, gradeRoleIds, removeGrade, upsertGrade } from './grades.js';
-import { AUTO_TRIGGERS, CHANNEL_KEYS, FORUM_CHANNEL_KEYS, ROLE_KEYS, autoRoleSettingKey, channelSettingKey, roleSettingKey } from './keys.js';
+import { AUTO_TRIGGERS, CHANNEL_KEYS, CHANNEL_KINDS, ROLE_KEYS, autoRoleSettingKey, channelSettingKey, roleSettingKey } from './keys.js';
 import { autoRoleIds, channelId, deleteSetting, roleId, setSetting } from './settings.js';
 
-type PanelPayload = ReturnType<typeof verificationPanel>;
+type PanelPayload = Pick<MessageCreateOptions, 'embeds' | 'components'>;
 const PANELS: Record<string, { label: string; channelKey: string; build: (guild: Guild) => PanelPayload | Promise<PanelPayload> }> = {
   verification: { label: 'Vérification (Créer ma fiche)', channelKey: 'verification', build: verificationPanel },
   absences: { label: 'Absences (Déclarer une absence)', channelKey: 'absences', build: absencesPanel },
   gestion: { label: 'Gestion (Avertissement / Sanction)', channelKey: 'gestion', build: gestionPanel },
+  tickets: { label: 'Tickets (menu d’ouverture)', channelKey: 'tickets', build: ticketsPanel },
 };
 
 const choices = (rec: Record<string, string>) => Object.entries(rec).map(([value, name]) => ({ name, value }));
@@ -109,9 +112,9 @@ export const configCommand: Command = {
         .addChannelOption((o) =>
           o
             .setName('salon')
-            .setDescription('Salon textuel (ou forum pour les dossiers)')
+            .setDescription('Salon textuel (forum pour les dossiers, catégorie pour les tickets)')
             .setRequired(true)
-            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildForum),
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildCategory),
         ),
     )
     .addSubcommand((s) => s.setName('voir').setDescription('Afficher la configuration actuelle et les problèmes détectés'))
@@ -262,11 +265,13 @@ async function setRole(interaction: ChatInputCommandInteraction<'cached'>) {
 
 async function setChannel(interaction: ChatInputCommandInteraction<'cached'>) {
   const key = interaction.options.getString('cle', true);
-  const channel = interaction.options.getChannel('salon', true, [ChannelType.GuildText, ChannelType.GuildForum]);
-  const wantsForum = FORUM_CHANNEL_KEYS.has(key);
-  if (wantsForum !== (channel.type === ChannelType.GuildForum)) {
+  const channel = interaction.options.getChannel('salon', true, [ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildCategory]);
+  const kind = CHANNEL_KINDS[key];
+  const expected = kind === 'forum' ? ChannelType.GuildForum : kind === 'categorie' ? ChannelType.GuildCategory : ChannelType.GuildText;
+  const wantsForum = kind === 'forum';
+  if (channel.type !== expected) {
     await interaction.reply({
-      content: wantsForum ? '❌ Ce réglage attend un **salon forum**.' : '❌ Ce réglage attend un **salon textuel** (pas un forum).',
+      content: `❌ Ce réglage attend ${kind === 'forum' ? 'un **salon forum**' : kind === 'categorie' ? 'une **catégorie**' : 'un **salon textuel**'}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -276,6 +281,7 @@ async function setChannel(interaction: ChatInputCommandInteraction<'cached'>) {
   const perms = me ? channel.permissionsFor(me) : null;
   const needed = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory];
   if (wantsForum) needed.push(PermissionFlagsBits.SendMessagesInThreads, PermissionFlagsBits.ManageThreads);
+  if (kind === 'categorie') needed.push(PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles);
   const warning =
     perms && !perms.has(needed)
       ? `\n⚠️ Le bot n’a pas toutes les permissions dans ce salon (voir, écrire, intégrer des liens, lire l’historique${wantsForum ? ', écrire dans les fils, gérer les fils' : ''}).`

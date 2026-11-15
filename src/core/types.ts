@@ -4,6 +4,7 @@ import type {
   ChatInputCommandInteraction,
   ModalSubmitInteraction,
   RESTPostAPIChatInputApplicationCommandsJSONBody,
+  StringSelectMenuInteraction,
 } from 'discord.js';
 
 /** Commande slash. */
@@ -21,5 +22,6 @@ export interface Command {
 export interface ComponentHandler {
   prefix: string;
   button?(interaction: ButtonInteraction, action: string, arg: string | undefined): Promise<void>;
+  select?(interaction: StringSelectMenuInteraction, action: string, arg: string | undefined): Promise<void>;
   modal?(interaction: ModalSubmitInteraction, action: string, arg: string | undefined): Promise<void>;
 }

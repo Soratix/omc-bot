@@ -34,12 +34,13 @@ Un seul bot pour tout : vérification et nom RP, absences du personnel, puis tic
    - **Privileged Gateway Intents** :
      - ✅ **SERVER MEMBERS INTENT** — **obligatoire** (arrivées des membres, changements de rôles).
      - ❌ Presence Intent — inutile.
-     - ❌ Message Content Intent — inutile : tout passe par boutons, formulaires et commandes slash.
+     - ✅ **MESSAGE CONTENT INTENT** — obligatoire depuis les tickets : sert uniquement à lire les messages
+       d’un ticket pour générer son transcript à la fermeture.
 3. Onglet **General Information** → copie l’**Application ID**.
 4. Invite le bot avec ce lien (remplace `APPLICATION_ID`) :
 
    ```
-   https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot+applications.commands&permissions=292460514304
+   https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot+applications.commands&permissions=292460547088
    ```
 
 ### Permissions demandées (phase 1)
@@ -58,7 +59,8 @@ Un seul bot pour tout : vérification et nom RP, absences du personnel, puis tic
 Facultatif : **Mentionner @everyone** si tu veux que `/embed … mention:@everyone` notifie vraiment tout le monde
 (sans elle, la mention s’affiche mais ne notifie pas ; les mentions de rôles « mentionnables » fonctionnent sans).
 
-La phase 2 (tickets) ajoutera **Gérer les salons** et **Joindre des fichiers** (transcripts).
+| Gérer les salons | Créer et supprimer les salons de tickets |
+| Joindre des fichiers | Envoyer le transcript HTML des tickets |
 
 ---
 
@@ -143,12 +145,14 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 1. Déclarer les grades : `/config grade ajouter role:@Directeur prefixe:[Dir.] direction:True`, etc.
    (`/config grade retirer` pour en enlever un).
 2. Associer les rôles techniques : `/config role cle:Citoyen role:@Citoyen`, puis Non vérifié, Absent, Personnel (→ @EMS) et Direction (→ @Direction).
-3. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff, dossiers (forum) et gestion.
+3. Associer les salons : `/config salon cle:#vérification salon:#vérification`, puis #absences, logs, staff, dossiers (forum),
+   gestion, #ouvrir-un-ticket, #logs-tickets et la **catégorie** des tickets.
 4. Vérifier : `/config voir` affiche la configuration et **les problèmes détectés** (rôle du bot trop bas, permission manquante…).
 5. Publier les messages fixes :
    - `/config publier panneau:Vérification`
    - `/config publier panneau:Absences`
    - `/config publier panneau:Gestion`
+   - `/config publier panneau:Tickets`
 
    Republier met à jour le message existant (pas de doublon).
 6. Si des membres ont déjà un grade : `/fiche resynchroniser` applique les préfixes et le rôle EMS.
@@ -183,6 +187,19 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 - **Avertissement / Sanction** : boutons dans `#gestion-secrétaire` → formulaire « ID Discord du membre + raison ».
   Le membre doit avoir un dossier.
 - Membres déjà EMS avant l’installation : `/dossier synchroniser` crée leurs dossiers.
+
+### Tickets
+
+- `#ouvrir-un-ticket` : menu déroulant avec les types de tickets actifs (`/config publier panneau:Tickets`).
+- Choix d’un type → formulaire propre au type → salon privé `type-numéro-nom` dans la catégorie des tickets,
+  visible par l’auteur et par les rôles d’accès du type (la direction est toujours autorisée à traiter).
+- Boutons **Prendre en charge** et **Fermer** (le formulaire de motif sert de confirmation). L’auteur peut aussi fermer.
+- À la fermeture : transcript **HTML** dans `#logs-tickets`, message privé à l’auteur, suppression du salon.
+  Si le transcript ne peut pas être archivé, le salon est conservé et la direction est alertée.
+- Un seul ticket ouvert par membre et par type. Un salon de ticket supprimé à la main ferme le ticket en base.
+- **Types gérés depuis Discord** : `/tickets type-creer`, `type-modifier`, `type-acces`, `type-retirer`, `type-reactiver`.
+  Questions du formulaire : une par ligne (5 max, 45 caractères max), `*` au début = texte long, `?` = facultative.
+- Limite Discord : 50 salons par catégorie.
 
 ### Absences
 
@@ -219,6 +236,10 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 | `/dossier note membre: texte:` | Direction | Ajoute une note au dossier |
 | `/dossier synchroniser` | Direction | Crée / rouvre / archive les dossiers selon le rôle EMS de chaque membre |
 | `/absences liste` | Personnel | Absences en cours et à venir |
+| `/tickets type-creer role: ouverture?` | Direction | Nouveau type (nom, emoji, description, questions dans un formulaire) |
+| `/tickets type-modifier type:` · `type-acces type: role:` · `type-retirer` · `type-reactiver` · `types` | Direction | Gestion des types de tickets |
+| `/tickets ajouter membre:` · `retirer membre:` | Équipe du ticket | Donner / retirer l’accès au ticket courant |
+| `/tickets stats` | Direction | Statistiques (volumes par type, délais moyens, prises en charge) |
 | `/absences nettoyer` | Direction | Retire du salon les fiches terminées/annulées (elles restent en base) |
 
 ---
@@ -324,5 +345,6 @@ src/
   annonces/           /embed (messages embed personnalisés)
   dossiers/           dossiers du personnel (forum), avertissements/sanctions, /dossier
   grades/             /grade attribuer | retirer
+  tickets/            tickets : types, ouverture, prise en charge, fermeture, transcript HTML, /tickets
   absences/           déclaration, fiches, tâche quotidienne, /absences
 ```

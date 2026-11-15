@@ -9,6 +9,8 @@ import { embedCommand, embedHandler } from '../annonces/embed.js';
 import { configCommand } from '../config/command.js';
 import { dossierCommand } from '../dossiers/command.js';
 import { gradeCommand } from '../grades/command.js';
+import { ticketsAdminHandler, ticketsCommand } from '../tickets/command.js';
+import { ticketsHandler } from '../tickets/handlers.js';
 import { gestionHandler } from '../dossiers/gestion.js';
 import { logger } from '../logger.js';
 import { LogColor, sendLog } from '../logs/index.js';
@@ -16,9 +18,9 @@ import { ficheCommand } from '../verification/command.js';
 import { verificationHandler } from '../verification/handlers.js';
 import type { Command, ComponentHandler } from './types.js';
 
-export const commands: Command[] = [configCommand, ficheCommand, absencesCommand, embedCommand, dossierCommand, gradeCommand];
+export const commands: Command[] = [configCommand, ficheCommand, absencesCommand, embedCommand, dossierCommand, gradeCommand, ticketsCommand];
 const commandMap = new Map(commands.map((c) => [c.data.name, c]));
-const handlers = new Map<string, ComponentHandler>([verificationHandler, absencesHandler, embedHandler, gestionHandler].map((h) => [h.prefix, h]));
+const handlers = new Map<string, ComponentHandler>([verificationHandler, absencesHandler, embedHandler, gestionHandler, ticketsHandler, ticketsAdminHandler].map((h) => [h.prefix, h]));
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
   try {
@@ -30,11 +32,12 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
       await commandMap.get(interaction.commandName)?.execute(interaction);
       return;
     }
-    if (interaction.isButton() || interaction.isModalSubmit()) {
+    if (interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu()) {
       const [prefix, action = '', arg] = interaction.customId.split(':');
       const handler = handlers.get(prefix ?? '');
       if (!handler) return;
       if (interaction.isButton()) await handler.button?.(interaction, action, arg);
+      else if (interaction.isStringSelectMenu()) await handler.select?.(interaction, action, arg);
       else await handler.modal?.(interaction, action, arg);
     }
   } catch (err) {

@@ -10,6 +10,7 @@ import { commands, handleInteraction } from './core/interactions.js';
 import { closeDatabase, initDatabase } from './db/index.js';
 import { env } from './env.js';
 import { logger } from './logger.js';
+import { onChannelDelete } from './tickets/events.js';
 import { onMemberJoin, onMemberLeave, onMemberUpdate } from './verification/events.js';
 
 /** Permissions minimales demandées à l'invitation (phase 1). */
@@ -23,12 +24,15 @@ export const BOT_PERMISSIONS = [
   // Forum des dossiers du personnel : écrire dans les posts, les archiver et les verrouiller.
   PermissionFlagsBits.SendMessagesInThreads,
   PermissionFlagsBits.ManageThreads,
+  // Tickets : créer/supprimer les salons de tickets, joindre le transcript.
+  PermissionFlagsBits.ManageChannels,
+  PermissionFlagsBits.AttachFiles,
 ];
 
 const client = new Client({
-  // GuildMembers est un intent privilégié : à activer dans le Developer Portal.
-  // Pas de MessageContent : tout passe par boutons, modals et commandes slash.
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  // GuildMembers et MessageContent sont des intents privilégiés : à activer dans le Developer Portal.
+  // MessageContent sert uniquement à lire les messages des tickets pour le transcript.
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.MessageContent],
 });
 
 let jobs: Cron[] = [];
@@ -53,6 +57,7 @@ client.on(Events.InteractionCreate, (interaction) => void handleInteraction(inte
 client.on(Events.GuildMemberAdd, (member) => void onMemberJoin(member).catch((err) => logger.error('guildMemberAdd', err)));
 client.on(Events.GuildMemberRemove, (member) => void onMemberLeave(member).catch((err) => logger.error('guildMemberRemove', err)));
 client.on(Events.GuildMemberUpdate, (oldM, newM) => void onMemberUpdate(oldM, newM).catch((err) => logger.error('guildMemberUpdate', err)));
+client.on(Events.ChannelDelete, (channel) => void onChannelDelete(channel).catch((err) => logger.error('channelDelete', err)));
 client.on(Events.Error, (err) => logger.error('Erreur du client Discord', err));
 client.on(Events.Warn, (msg) => logger.warn(msg));
 
@@ -79,7 +84,7 @@ try {
   if (code === 'TokenInvalid' || /invalid token|authentication failed/i.test(message)) {
     logger.error('Token Discord invalide : vérifie DISCORD_TOKEN dans le fichier .env.');
   } else if (code === 'DisallowedIntents' || code === 4014 || /disallowed intents/i.test(message)) {
-    logger.error('Intent « Server Members » non activé : Developer Portal > Bot > Privileged Gateway Intents > SERVER MEMBERS INTENT.');
+    logger.error('Intent privilégié non activé : Developer Portal > Bot > Privileged Gateway Intents > SERVER MEMBERS INTENT et MESSAGE CONTENT INTENT.');
   } else {
     fatal = false;
     logger.error('Connexion à Discord impossible', err);

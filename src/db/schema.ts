@@ -2,7 +2,7 @@
  * Schéma de la base de données (Drizzle ORM).
  * Après toute modification : `npm run db:generate` pour créer la migration SQL versionnée.
  */
-import { boolean, date, index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { boolean, date, index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 /** Paramètres configurables (IDs de salons, de rôles, de messages fixes). Clé → valeur. */
 export const settings = pgTable('settings', {
@@ -103,6 +103,57 @@ export const dossierEvents = pgTable(
   (t) => [index('dossier_events_user_idx').on(t.userId)],
 );
 
+/** Question du formulaire d'ouverture d'un type de ticket. */
+export interface TicketQuestion {
+  label: string;
+  /** Champ de texte long (paragraphe). */
+  long: boolean;
+  required: boolean;
+}
+
+/** Qui peut ouvrir un type de ticket. */
+export const ticketOpener = pgEnum('ticket_opener', ['verifie', 'personnel', 'tous']);
+
+/** Types de tickets, gérés depuis Discord (/tickets type-…). */
+export const ticketTypes = pgTable('ticket_types', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 45 }).notNull(),
+  /** Préfixe du nom des salons (ex. « reclamation » → reclamation-12-jean-dupont). */
+  slug: varchar('slug', { length: 20 }).notNull(),
+  emoji: varchar('emoji', { length: 64 }),
+  description: varchar('description', { length: 100 }),
+  /** Rôles qui voient et traitent ces tickets. */
+  staffRoleIds: text('staff_role_ids').array().notNull().default([]),
+  opener: ticketOpener('opener').notNull().default('verifie'),
+  questions: jsonb('questions').$type<TicketQuestion[]>().notNull().default([]),
+  enabled: boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const ticketStatus = pgEnum('ticket_status', ['ouvert', 'ferme']);
+
+export const tickets = pgTable(
+  'tickets',
+  {
+    id: serial('id').primaryKey(),
+    typeId: integer('type_id').notNull(),
+    userId: varchar('user_id', { length: 32 }).notNull(),
+    channelId: varchar('channel_id', { length: 32 }),
+    status: ticketStatus('status').notNull().default('ouvert'),
+    /** Réponses au formulaire d'ouverture. */
+    answers: jsonb('answers').$type<{ question: string; answer: string }[]>().notNull().default([]),
+    claimedBy: varchar('claimed_by', { length: 32 }),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    closedBy: varchar('closed_by', { length: 32 }),
+    closeReason: text('close_reason'),
+  },
+  (t) => [index('tickets_user_idx').on(t.userId), index('tickets_status_idx').on(t.status), index('tickets_channel_idx').on(t.channelId)],
+);
+
+export type TicketType = typeof ticketTypes.$inferSelect;
+export type Ticket = typeof tickets.$inferSelect;
 export type Dossier = typeof dossiers.$inferSelect;
 export type DossierEventType = (typeof dossierEventType.enumValues)[number];
 export type GradeRow =typeof grades.$inferSelect;

@@ -20,10 +20,16 @@ export const CHANNEL_KEYS: Record<string, string> = {
   staff: 'Salon staff (alertes absences, MP fermés)',
   dossiers: 'Forum des dossiers du personnel (direction)',
   gestion: '#gestion-secrétaire (avertissements et sanctions)',
+  tickets: '#ouvrir-un-ticket (menu d’ouverture)',
+  tickets_logs: '#logs-tickets (transcripts)',
+  tickets_categorie: 'Catégorie des tickets ouverts',
 };
 
-/** Salons qui doivent être des forums (les autres sont des salons textuels). */
-export const FORUM_CHANNEL_KEYS = new Set(['dossiers']);
+/** Type de salon attendu pour chaque réglage (les autres sont des salons textuels). */
+export const CHANNEL_KINDS: Record<string, 'forum' | 'categorie'> = {
+  dossiers: 'forum',
+  tickets_categorie: 'categorie',
+};
 
 /**
  * Rôles automatiques supplémentaires (/config auto), par déclencheur :
