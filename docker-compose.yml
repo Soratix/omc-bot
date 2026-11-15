@@ -1,0 +1,76 @@
+# Bot Discord de l'Ocean Medical Center
+#   bot    : le bot (connexion sortante vers Discord uniquement, aucun port publié)
+#   db     : PostgreSQL, joignable uniquement sur le réseau interne
+#   backup : pg_dump quotidien avec rotation (voir scripts/backup.sh)
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  bot:
+    build: .
+    image: omc-bot:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Europe/Paris
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [interne, sortie]
+    logging: *logging
+
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+      PGTZ: Europe/Paris
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [interne]
+    logging: *logging
+
+  backup:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_HOUR: ${BACKUP_HOUR:-4}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [interne]
+    logging: *logging
+
+volumes:
+  pgdata:
+
+networks:
+  # Réseau interne sans accès Internet : la base n'est jamais exposée.
+  interne:
+    internal: true
+  # Réseau pour la connexion sortante du bot vers Discord.
+  sortie:
