@@ -135,6 +135,25 @@ Lance **`/setup`** : il liste les étapes, coche ce qui est prêt et donne la co
 | Recalculer pseudos et rôles EMS / Direction | `/fiche resynchroniser` |
 | Créer les dossiers manquants | `/dossier synchroniser` |
 
+### Avant l’ouverture : effacer les données de test (une seule fois)
+
+Le script `scripts/reset-donnees.sh` efface les **fiches RP, dossiers (et leurs posts du forum), absences et tickets**
+(les numéros de tickets repartent à 1), en **conservant toute la configuration**. Il fait une sauvegarde avant
+et demande de taper `RESET` pour confirmer.
+
+1. Sur Discord : retirer les grades et rôles du ou des comptes de test (ou les exclure du serveur).
+2. Sur le VPS (accès SSH) :
+   ```bash
+   cd /opt/omc-bot && sh scripts/reset-donnees.sh
+   ```
+3. Vider les salons de logs (`logs-bot`, `retour-secrétaire`, `logs-tickets`) : clic droit sur le salon →
+   **Dupliquer le salon**, supprimer l’ancien, puis `/config salon` sur le nouveau.
+4. `/setup` pour vérifier, puis `/dossier synchroniser` si des membres ont déjà le rôle EMS.
+5. Les membres déjà présents recréent leur fiche via **Créer ma fiche** (ou `/fiche modifier` par la direction).
+
+⚠️ Ne pas relancer ce script une fois le serveur ouvert : il effacerait les vraies données
+(une restauration reste possible depuis la sauvegarde faite juste avant, voir le README).
+
 **Ordre des grades** : c’est l’ordre des rôles dans *Paramètres du serveur → Rôles* qui compte (le plus haut donne le
 préfixe, et monter de rôle = promotion). Pour réorganiser la hiérarchie, il suffit de déplacer les rôles.
 
