@@ -1,5 +1,6 @@
 /**
- * /config — réservé à la direction (ou aux administrateurs du serveur).
+ * /config — réservé aux administrateurs du serveur (permission Administrateur).
+ * La commande est aussi masquée dans Discord pour les autres membres.
  *   /config grade ajouter : déclarer un rôle comme grade (préfixe du pseudo, accès direction)
  *   /config grade retirer : ne plus traiter un rôle comme grade
  *   /config role          : associer un rôle technique (Citoyen, Non vérifié, Absent)
@@ -24,7 +25,7 @@ import { gestionPanel } from '../dossiers/gestion.js';
 import { ticketsPanel } from '../tickets/panel.js';
 import type { Command } from '../core/types.js';
 import { missingBotPerms } from '../lib/channels.js';
-import { isDirection } from '../lib/members.js';
+import { isAdmin } from '../lib/members.js';
 import { LogColor, sendLog } from '../logs/index.js';
 import { verificationPanel } from '../verification/panel.js';
 import { MAX_PREFIX_LENGTH, allGrades, gradeRoleIds, removeGrade, upsertGrade } from './grades.js';
@@ -46,6 +47,8 @@ export const configCommand: Command = {
     .setName('config')
     .setDescription('Configuration du bot (direction)')
     .setContexts(InteractionContextType.Guild)
+    // Masquée pour les membres sans la permission Administrateur (contrôle aussi fait côté bot).
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommandGroup((g) =>
       g
         .setName('grade')
@@ -133,8 +136,8 @@ export const configCommand: Command = {
 
   async execute(interaction) {
     if (!interaction.inCachedGuild()) return;
-    if (!isDirection(interaction.member)) {
-      await interaction.reply({ content: '⛔ Cette commande est réservée à la direction.', flags: MessageFlags.Ephemeral });
+    if (!isAdmin(interaction.member)) {
+      await interaction.reply({ content: '⛔ Cette commande est réservée aux administrateurs du serveur.', flags: MessageFlags.Ephemeral });
       return;
     }
     const group = interaction.options.getSubcommandGroup();
@@ -334,7 +337,7 @@ async function show(interaction: ChatInputCommandInteraction<'cached'>) {
 }
 
 /** Liste les problèmes de configuration (rôles manquants, hiérarchie, permissions). */
-function diagnose(guild: Guild): string[] {
+export function diagnose(guild: Guild): string[] {
   const out: string[] = [];
   const me = guild.members.me;
   if (!me) return ['Le bot n’est pas encore prêt.'];

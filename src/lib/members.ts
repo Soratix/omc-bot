@@ -8,6 +8,11 @@ import { roleId } from '../config/settings.js';
 
 export { highestGrade };
 
+/** Administrateur du serveur (permission Administrateur ; le propriétaire l'a toujours). */
+export function isAdmin(member: GuildMember): boolean {
+  return member.permissions.has(PermissionFlagsBits.Administrator);
+}
+
 /** Direction = un grade marqué « direction », ou administrateur du serveur (utile avant la configuration). */
 export function isDirection(member: GuildMember): boolean {
   return member.permissions.has(PermissionFlagsBits.Administrator) || hasDirectionGrade(member);

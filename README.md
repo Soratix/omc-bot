@@ -1,7 +1,10 @@
 # Bot Discord — Ocean Medical Center
 
 Bot sur mesure du serveur Discord de l’hôpital **Ocean Medical Center** (serveur RP FiveM).
-Un seul bot pour tout : vérification et nom RP, absences du personnel, puis tickets (phase 2).
+Un seul bot pour tout : vérification et nom RP, absences du personnel, dossiers du personnel, tickets.
+
+> 📖 **Utilisation au quotidien, droits de chacun, dépannage : voir [GUIDE.md](GUIDE.md).**
+> Dans Discord : `/aide` (commandes disponibles selon tes droits) et `/setup` (vérification de la configuration).
 
 - Node.js 26 LTS + TypeScript, discord.js 14
 - PostgreSQL 18 (conteneur dédié, volume persistant, réseau interne uniquement)
@@ -140,7 +143,8 @@ docker compose logs -f bot
 
 ## 4. Configuration du bot sur Discord (`/config`)
 
-Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun grade « direction » n’est configuré).
+Réservé aux **administrateurs** du serveur (permission Administrateur) ; la commande est masquée pour les autres.
+`/setup` liste les étapes ci-dessous et coche celles qui sont faites.
 
 1. Déclarer les grades : `/config grade ajouter role:@Directeur prefixe:[Dir.] direction:True`, etc.
    (`/config grade retirer` pour en enlever un).
@@ -224,7 +228,9 @@ Réservé à la direction (ou aux administrateurs du serveur tant qu’aucun gra
 
 | Commande | Qui | Effet |
 |---|---|---|
-| `/config grade ajouter` · `grade retirer` · `auto ajouter` · `auto retirer` · `role` · `salon` · `voir` · `publier` | Direction | Configuration (voir §4) |
+| `/config grade ajouter` · `grade retirer` · `auto ajouter` · `auto retirer` · `role` · `salon` · `voir` · `publier` | Administrateurs | Configuration (voir §4) |
+| `/setup` | Administrateurs | Liste de contrôle de la configuration |
+| `/aide` | Tout le monde | Commandes disponibles selon ses droits |
 | `/embed envoyer salon? couleur? image? mention?` | Direction | Publie un embed ; titre, contenu (Markdown, retours à la ligne) et pied de page se saisissent dans un formulaire |
 | `/embed modifier lien: couleur? image?` | Direction | Modifie un embed publié par le bot (formulaire pré-rempli ; `image:aucune` retire l’image) |
 | `/fiche voir membre:` | Direction | Fiche RP d’un membre |

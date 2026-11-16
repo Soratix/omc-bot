@@ -6,7 +6,9 @@ import { MessageFlags, type Interaction } from 'discord.js';
 import { absencesCommand } from '../absences/command.js';
 import { absencesHandler } from '../absences/handlers.js';
 import { embedCommand, embedHandler } from '../annonces/embed.js';
+import { aideCommand } from '../config/aide.js';
 import { configCommand } from '../config/command.js';
+import { setupCommand } from '../config/setup.js';
 import { dossierCommand } from '../dossiers/command.js';
 import { gradeCommand } from '../grades/command.js';
 import { ticketsAdminHandler, ticketsCommand } from '../tickets/command.js';
@@ -18,7 +20,7 @@ import { ficheCommand } from '../verification/command.js';
 import { verificationHandler } from '../verification/handlers.js';
 import type { Command, ComponentHandler } from './types.js';
 
-export const commands: Command[] = [configCommand, ficheCommand, absencesCommand, embedCommand, dossierCommand, gradeCommand, ticketsCommand];
+export const commands: Command[] = [configCommand, ficheCommand, absencesCommand, embedCommand, dossierCommand, gradeCommand, ticketsCommand, setupCommand, aideCommand];
 const commandMap = new Map(commands.map((c) => [c.data.name, c]));
 const handlers = new Map<string, ComponentHandler>([verificationHandler, absencesHandler, embedHandler, gestionHandler, ticketsHandler, ticketsAdminHandler].map((h) => [h.prefix, h]));
 
