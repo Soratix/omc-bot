@@ -189,7 +189,12 @@ async function startEdit(interaction: ChatInputCommandInteraction<'cached'>) {
     return;
   }
   const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
-  const message = channel?.isTextBased() ? await channel.messages.fetch(messageId).catch(() => null) : null;
+  // force: true → on relit le message depuis Discord : la version en cache peut être
+  // celle d'origine (message.edit() ne met pas le cache à jour), ce qui pré-remplirait
+  // le formulaire avec un ancien contenu.
+  const message = channel?.isTextBased()
+    ? await channel.messages.fetch({ message: messageId, force: true }).catch(() => null)
+    : null;
   if (!message) {
     await interaction.reply({ content: '❌ Message introuvable.', flags: MessageFlags.Ephemeral });
     return;
